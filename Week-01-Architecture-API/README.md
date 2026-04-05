@@ -17,7 +17,8 @@ The script successfully parses messy, unstructured technical logs into a clean, 
 
 | Technology | Owner | Urgency |
 | :--------- | :---- | :------ |
-| PostgreSQL | Sarah | High    |
-| AWS Lambda | Joe   | High    |
+| PostgreSQL | Sarah | high    |
+| React      | Bob   | low     |
+| AWS Lambda | Joe   | medium  |
 
 <img width="858" height="347" alt="Screenshot 2026-04-04 200449" src="https://github.com/user-attachments/assets/399e9cb9-6a88-4f35-8ba8-052a89cbf284" />
