@@ -1,4 +1,4 @@
-# Week 1: The Architecture & API Layer
+# Part 1: The Raw API and Structured Outputs
 
 ## Objective
 
