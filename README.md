@@ -7,8 +7,8 @@ and orchestration of LLM-powered applications.
 ## 🚀 The Roadmap
 
 - **Week 1: Architecture & API Layer** (Structured Outputs, AWS Lambda, DynamoDB)
-- **Week 2: [Future Topic]**
-- ...
+- **Week 2: Framework Abstractions** (LangChain)
+- **Week 3: Serverless Deployment** (Lambda & Functional URLs)
 
 ## 🛠️ Tech Stack
 
