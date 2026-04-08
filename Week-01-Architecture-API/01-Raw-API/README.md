@@ -11,6 +11,14 @@ To master the programmatic interface of LLMs and enforce strict data types on no
 - **Constraint Engineering:** Used Python `Enums` to force the AI into specific classification categories (High/Medium/Low urgency).
 - **Defensive Programming:** Implemented logic to handle `NoneType` responses when the model encounters ambiguous data.
 
+## Technical Architecture
+
+- **Runtime**: Python 3.x local
+- **LLM API**: OpenAI Python SDK, gpt-4o-2024-08-06
+- **Validation**: Pydantic
+- **Constraint enforcement**: Enums
+- **Output**: Structured JSON parsed into table
+
 ## Proof of Work
 
 The script successfully parses messy, unstructured technical logs into a clean, actionable table:
