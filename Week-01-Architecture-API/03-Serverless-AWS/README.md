@@ -12,6 +12,14 @@ To transition AI logic from a local development environment to a secure, scalabl
 - **Optimized Build Pipeline:** Engineered a "Flat-Archive" build script in `package.json` to automate the transition from a multi-gigabyte project root to a lean, **<2MB** deployment package.
 - **Type-Safe Handshakes:** Leveraged **Zod** schemas in conjunction with LangChain's `withStructuredOutput` to ensure cloud responses adhere to strict interface contracts.
 
+### **Technical Architecture**
+
+- **Runtime:** Node.js 20.x on AWS Lambda (arm64).
+- **Orchestration:** [LangChain](https://js.langchain.com/docs/get_started/introduction) for LLM chaining and prompt management.
+- **Validation:** [Zod](https://zod.dev/) for strict schema enforcement of AI outputs.
+- **Security:** [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/) for encrypted API key storage with IAM-restricted access.
+- **Deployment:** Lambda Function URLs for high-timeout, cost-effective API access.
+
 ## Proof of Work
 
 The API successfully processes natural language project descriptions via **Postman** and returns a fully structured task breakdown:
