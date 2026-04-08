@@ -23,9 +23,14 @@ async function getChain() {
         new GetSecretValueCommand({ SecretId: "dev/openai/ai-engineering-lab" })
     )
     const secrets = JSON.parse(secretResponse.SecretString || "{}");
+    const key = secrets.OPENAI_API_KEY;
+
+    if (!key) {
+        throw new Error("OPENAI_API_KEY not found in Secrets Manager response.");
+    }
 
     const model = new ChatOpenAI({
-        openAIApiKey: secrets.OPENAI_API_KEY,
+        apiKey: key,
         modelName: "gpt-4o",
         temperature: 0
     }).withStructuredOutput(responseSchema);
@@ -42,6 +47,7 @@ async function getChain() {
 };
 
 export const handler = async (event: any) => {
+    console.log("EVENT RECEIVED:", JSON.stringify(event));
     try {
         const body = event.body ? JSON.parse(event.body) : {};
         const { project_description } = body;
@@ -63,9 +69,10 @@ export const handler = async (event: any) => {
             body: JSON.stringify(result),
         };
     } catch (error: any) {
+        console.error("LAMBDA ERROR:", error);
         return {
             statusCode: 500,
-            body: JSON.stringify({error: "Internal Server Error", message: error.message }),
+            body: JSON.stringify({error: "Internal Server Error", message: error.message, stack: error.stack}),
         };
     }
 };
