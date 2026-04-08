@@ -39,3 +39,4 @@ INFO  Secret Keys Found: [ 'OPENAI_API_KEY' ]
 INFO  EVENT RECEIVED: {"project_description": "Organize a 50-person company pizza party..."}
 REPORT RequestId: ...  Duration: 535.52 ms  Memory Used: 116 MB
 ```
+<img width="1576" height="894" alt="03-Serverless-LangChain-Diagram" src="https://github.com/user-attachments/assets/511bb77a-c23d-4a57-9050-3faacbbde36c" />
