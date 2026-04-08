@@ -29,3 +29,5 @@ The script processes unstructured project descriptions and outputs a structured,
 | Book a venue for the pizza party | Logistics | high    | null        |
 | Order pizzas (vegan, GF, etc.)   | Catering  | high    | null        |
 | Arrange drinks and utensils      | Catering  | medium  | null        |
+
+<img width="1396" height="336" alt="Screenshot 2026-04-08 162154" src="https://github.com/user-attachments/assets/47368c11-6fa7-48e1-ba14-2644499585db" />
