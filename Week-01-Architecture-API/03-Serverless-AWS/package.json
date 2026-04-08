@@ -7,7 +7,7 @@
     "dev": "ts-node src/index.ts",
     "build": "esbuild src/index.ts --bundle --minify --sourcemap --platform=node --target=node22 --outfile=dist/index.mjs --format=esm",
     "start": "node dist/index.js",
-    "zip" : "zip -j deploy.zip dist/index.mjs"
+    "zip": "bestzip function.zip -C dist/ ."
   },
   "keywords": [],
   "author": "",
@@ -23,6 +23,7 @@
   "devDependencies": {
     "@types/aws-lambda": "^8.10.161",
     "@types/node": "^25.5.2",
+    "bestzip": "^2.2.3",
     "esbuild": "^0.28.0",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.2"
