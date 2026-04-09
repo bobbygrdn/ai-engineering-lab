@@ -1,10 +1,11 @@
 import { SecretsManagerClient, GetSecretValueCommand } from "@aws-sdk/client-secrets-manager";
 import { ChatOpenAI } from "@langchain/openai";
-import { ChatPromptTemplate } from "@langchain/core/prompts";
+import { ChatPromptTemplate, MessagesPlaceholder } from "@langchain/core/prompts";
+import { DynamoDBChatMessageHistory } from "@langchain/community/stores/message/dynamodb";
 import { z } from "zod";
 
 const secretsClient = new SecretsManagerClient({ region: "us-east-1" });
-let cachedChain: any = null;
+let cachedModel: any = null;
 
 const responseSchema = z.object({
     summary: z.string().describe("A brief summary of the project and the tasks that need to be completed."),
@@ -16,8 +17,8 @@ const responseSchema = z.object({
     }))
 });
 
-async function getChain() {
-    if (cachedChain) return cachedChain;
+async function getModel() {
+    if (cachedModel) return cachedModel;
 
     const secretResponse = await secretsClient.send(
         new GetSecretValueCommand({ SecretId: "dev/openai/ai-engineering-lab" })
@@ -29,28 +30,20 @@ async function getChain() {
         throw new Error("OPENAI_API_KEY not found in Secrets Manager response.");
     }
 
-    const model = new ChatOpenAI({
+    cachedModel = new ChatOpenAI({
         apiKey: key,
         modelName: "gpt-4o",
         temperature: 0
     }).withStructuredOutput(responseSchema);
 
-    const prompt = ChatPromptTemplate.fromMessages([
-        ["system", "You are a helpful assistant that helps to break down complex projects into smaller, manageable tasks. You will be given a project description and you need to generate a list of tasks that need to be completed to accomplish the project. Each task should have a name, category, assigned to (if applicable), and urgency level. Only use information explicitly stated in the project description to generate tasks. If the project description does not specify who should be assigned to a task, set the assigned to as null. The urgency level should be determined based on the information provided in the project description. If there is no information about urgency, default to medium."],
-        ["human", "Plan a quick coffee meet-up."],
-        ["ai", "{{\"summary\": \"To plan a quick coffee meet-up, we need to identify the tasks involved in organizing the event.\", \"tasks\": [{{\"name\": \"Choose a date and time\", \"category\": \"Scheduling\", \"assigned_to\": null, \"urgency\": \"high\"}}]}}"],
-        ["human", "{project_description}"],
-    ]);
-
-    cachedChain = prompt.pipe(model);
-    return cachedChain;
-};
+    return cachedModel;
+}
 
 export const handler = async (event: any) => {
     console.log("EVENT RECEIVED:", JSON.stringify(event));
     try {
         const body = event.body ? JSON.parse(event.body) : {};
-        const { project_description } = body;
+        const { project_description, sessionId = "default-session" } = body;
 
         if (!project_description) {
             return {
@@ -59,9 +52,33 @@ export const handler = async (event: any) => {
             };
         }
 
-        const chain = await getChain();
+        const history = new DynamoDBChatMessageHistory({
+        tableName: "ProjectManagerHistory",
+        partitionKey: "SessionId",
+        sessionId: sessionId,
+        config: {
+            region: "us-east-1",
+        },
+    });
 
-        const result = await chain.invoke({ project_description });
+        const pastMessages = await history.getMessages();
+
+        const model = await getModel();
+
+const prompt = ChatPromptTemplate.fromMessages([
+        ["system", "You are a helpful assistant that helps to break down complex projects into smaller, manageable tasks. You will be given a project description and you need to generate a list of tasks that need to be completed to accomplish the project. Each task should have a name, category, assigned to (if applicable), and urgency level. Only use information explicitly stated in the project description to generate tasks. If the project description does not specify who should be assigned to a task, set the assigned to as null. The urgency level should be determined based on the information provided in the project description. If there is no information about urgency, default to medium."],
+        ["human", "Plan a quick coffee meet-up."],
+        ["ai", "{{\"summary\": \"To plan a quick coffee meet-up, we need to identify the tasks involved in organizing the event.\", \"tasks\": [{{\"name\": \"Choose a date and time\", \"category\": \"Scheduling\", \"assigned_to\": null, \"urgency\": \"high\"}}]}}"],
+        new MessagesPlaceholder("chat_history"),
+        ["human", "{project_description}"],
+    ]);
+
+        const chain = prompt.pipe(model);
+
+        const result = await chain.invoke({ project_description,chat_history: pastMessages });
+
+        await history.addUserMessage(project_description);
+        await history.addAIMessage(JSON.stringify(result));
 
         return {
             statusCode: 200,
