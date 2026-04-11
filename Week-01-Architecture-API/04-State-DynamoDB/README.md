@@ -71,3 +71,5 @@ INFO  EVENT RECEIVED: {
 INFO  DynamoDB: Successfully retrieved conversation history for session: party-001
 REPORT RequestId: [REQ_ID_2]	Duration: 3561.82 ms	Billed Duration: 3562 ms	Memory Size: 512 MB	Max Memory Used: 157 MB
 ```
+
+<img width="1576" height="1494" alt="04-State-DynamoDB" src="https://github.com/user-attachments/assets/7795d4ef-41c4-4a13-88b6-0b9b21335c3d" />
