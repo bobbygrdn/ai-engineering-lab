@@ -1,4 +1,4 @@
-# Week 2: Orchestration & Frameworks (Day 1 & 2)
+# Part 1: Orchestration & Frameworks (Day 1 & 2)
 
 ## Objective
 
