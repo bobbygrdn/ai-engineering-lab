@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "npm tsx src/index.ts",
-    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --outdir=dist --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
     "zip": "cd dist && npx bestzip ../function.zip *",
     "deploy-manual": "npm run build && npm run zip"
   },
