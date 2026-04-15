@@ -5,3 +5,4 @@ __pycache__/
 node_modules
 dist
 *.zip
+raw_scrape_debug.txt
