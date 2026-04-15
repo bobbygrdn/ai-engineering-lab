@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "tsx src/index.ts"
   },
   "keywords": [],
   "author": "",
@@ -12,6 +12,7 @@
   "type": "module",
   "dependencies": {
     "@langchain/community": "^1.1.27",
+    "@langchain/core": "^1.1.39",
     "@langchain/openai": "^1.4.4",
     "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
