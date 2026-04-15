@@ -4,23 +4,29 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx src/index.ts"
+    "dev": "npm tsx src/index.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --target=node20 --outfile=dist/index.mjs --banner:js=\"import { createRequire } from 'module'; const require = createRequire(import.meta.url);\"",
+    "zip": "cd dist && npx bestzip ../function.zip *",
+    "deploy-manual": "npm run build && npm run zip"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "module",
   "dependencies": {
+    "@aws-sdk/client-secrets-manager": "^3.1030.0",
     "@langchain/community": "^1.1.27",
     "@langchain/core": "^1.1.39",
     "@langchain/openai": "^1.4.4",
     "cheerio": "^1.2.0",
     "dotenv": "^17.4.2",
+    "esbuild": "^0.28.0",
     "langchain": "^1.3.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
+    "bestzip": "^2.2.3",
     "tsx": "^4.21.0",
     "typescript": "^6.0.2"
   }
