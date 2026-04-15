@@ -23,7 +23,6 @@ To transition the agent from relying on internal training weights to consuming l
 
 The system demonstrates the ability to identify local trends while providing a verifiable audit trail:
 
-| **Company**           | **Role**            | **Tech Stack**              | **Evidence (Ground Truth)**                          |
-| --------------------- | ------------------- | --------------------------- | ---------------------------------------------------- |
-| **NEK Broadband**     | Telecomm Technician | Broadband, Internet Service | "...ensure high-speed broadband internet service..." |
-| **BETA Technologies** | [Simulated Example] | C++, Aerospace, Python      | "Proficiency in C++ for flight control systems."     |
+| **Company**       | **Role**            | **Tech Stack**              | **Evidence (Ground Truth)**                          |
+| ----------------- | ------------------- | --------------------------- | ---------------------------------------------------- |
+| **NEK Broadband** | Telecomm Technician | Broadband, Internet Service | "...ensure high-speed broadband internet service..." |
