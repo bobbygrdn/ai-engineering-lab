@@ -1,0 +1,506 @@
+
+
+
+<iframe src="https://www.googletagmanager.com/ns.html?id=GTM-M4LZNR"
+height="0" width="0" style="display:none;visibility:hidden"></iframe>
+
+
+
+
+
+
+	
+
+		
+		
+			                     
+                                    		
+
+		
+
+	
+
+			Post a Job
+Find a Job
+
+	View All Jobs
+	Create a Job Alert
+	Job Categories
+	Who’s Hiring?
+
+
+Help
+
+	Help for Job Seekers
+	Help for Job Recruiters
+
+
+Log In/Register
+
+		
+		
+		
+		
+					
+			
+		
+
+	
+
+
+
+
+				
+					
+
+				
+					Tech Jobs in Vermont
+								        
+						
+				        	Seven Days Jobs
+Tech Jobs in Vermont
+				        
+					
+									
+			
+		
+	
+
+	
+	
+	
+		
+			Current Openings for Vermont Tech Jobs
+Includes all posts from the following categories: Biotech/Science, Manufacturing, Engineering/Architecture and IT/Systems Admin.
+
+		
+	
+
+	
+		
+			
+            
+            
+                
+            
+
+            
+
+                            
+
+
+	
+				
+			Production Technician Full TimeNEW 
+			
+
+			
+								 FoodScience
+				 Williston
+				 Posted 1 day ago
+				
+							
+			At FoodScience®, our mission is simple: helping people and pets live healthier lives. For over 50 years, we’ve produced high-quality nutritional supplements while fostering a collaborative, team-first culture. We’re seeking…
+				
+			
+			
+				
+		
+	
+
+                            
+
+
+	
+				
+			Telecommunications Service Technician Full TimeNEW 
+			
+
+			
+								 NEK Broadband
+				 St. Johnsbury, Vermont, USA
+				 Posted 1 day ago
+				
+							
+			About NEKCV is a community-driven organization whose mission is to ensure high-speed broadband internet service is available to the most rural and underserved communities in the Northeast Kingdom and the…
+				
+			
+			
+				
+		
+	
+
+                            
+
+
+	
+				
+			Seasonal Positions Full Time 
+			
+
+			
+								 Vermont State Division for Historic Preservation
+				 Bennington, Vermont, USA
+				 Posted 4 days ago
+				
+							
+			Seasonal positions at Vermont State Historic sites Roles include educational interpreters, admission and gift shop clerks, groundskeepers, cleaners, trail workers, elevator attendants, museum/collections caretakers and maintenance technicians. Start and end…
+				
+			
+			
+				
+		
+	
+
+                            
+
+
+	
+				
+			Packing Line Operators Full Time 
+			
+
+			
+								 Zero Gravity
+				 Burlington, Vermont, USA
+				 Posted 6 days ago
+				
+							
+			Looking for an opportunity to work at one of the Northeast’s most reputable breweries? Now is your chance! Zero Gravity is hiring for Full-Time Packaging Line Operators. No experience necessary,…
+				
+			
+			
+				
+		
+	
+
+                            
+
+
+	
+				
+			Brewer-Cellar Operator Full Time 
+			
+
+			
+								 Zero Gravity
+				 Burlington, Vermont, USA
+				 Posted 6 days ago
+				
+							
+			Looking for an opportunity to work at one of the Northeast’s most reputable breweries? Now is your chance! We are hiring a full-time Brewer-Cellar Operator at our Pine Street location.  The ideal candidate…
+				
+			
+			
+				
+		
+	
+
+                            
+
+
+	
+				
+			Engineering Instructor Full Time 
+			
+
+			
+								 Green Mountain Technology and Career Center
+				 Hyde Park, Vermont, USA
+				 Posted 3 weeks ago
+				
+							
+			Green Mountain Technology & Career Center is seeking a dynamic and collaborative instructor to lead its Engineering program beginning in the 2026–2027 school year. This full-day, hands-on program serves primarily…
+				
+			
+			
+				
+		
+	
+
+                            
+
+
+	
+				
+			Art Studio Production and Operations Coordinator Part Time 
+			
+
+			
+								 Lemon Zesty
+				 Northfield, Vermont, USA
+				 Posted 3 weeks ago
+				
+							
+			Art studio and high-volume merchandise business seeks a part-time studio/operations coordinator. Possibility to grow to full time next year. Must be efficient, detail-oriented, and able to prioritize in order to…
+				
+			
+			
+				
+		
+	
+
+            
+            
+
+            
+        
+
+		
+	
+ 
+        
+             Engineering / Architecture (2)
+         
+        
+             IT / Systems Admin. (1)
+         
+        
+             Manufacturing (5)
+        
+        
+			
+			
+							
+	
+				
+
+	
+
+				
+
+
+
+
+googletag.cmd.push(function() { googletag.display('div-gpt-ad-1486576981785-0'); });
+
+
+
+
+		
+
+
+
+
+
+
+	
+		             
+                Seven Days Jobs			Finding a job in Vermont starts with Seven Days. The popular and trusted online job board and corresponding newspaper supplement features 100+ new job postings each week. These are real positions from legitimate Vermont employers. No Craigslist scams.
+ Post a Job
+ Find a Job
+
+		            
+                     
+                Need Help?Job Recruiter FAQ
+Job Seeker FAQ
+            
+                     
+                Popular ToolsBrowse Job Categories
+See Who’s Hiring
+Schedule Job Alerts
+Save Your Favorite Jobs
+
+ 
+ 
+ 
+	   
+            
+        	
+
+	
+	
+		
+			
+
+                
+				Terms of Use — Privacy Policy
+© Da Capo Publishing, Inc. 255 S. Champlain St., Ste 5., Burlington, VT 05401
+802-865-1020, ext. 121
+
+			
+		
+	
+
+
+
+
+
+
+
+
+
+
+
+jQuery(window).load(function() {
+	jQuery("#navigation").fadeIn(500);
+	jQuery(".jobslogin-button").click(function(e){
+			e.preventDefault();
+	    jQuery(".jobslogin-button").hide("fast");
+			jQuery(".jobslogin-inner").show("fast");
+	});
+});
+
+
+
+
+
+
+
+
+
+	
+		
+	
+
+	
+		
+	
+
+
+
+
+
+
+
+
+
+
+
+
+wp.i18n.setLocaleData( { 'text direction\u0004ltr': [ 'ltr' ] } );
+
+
+
+/* <![CDATA[ */
+var uiAutocompleteL10n = {"noResults":"No results found.","oneResult":"1 result found. Use up and down arrow keys to navigate.","manyResults":"%d results found. Use up and down arrow keys to navigate.","itemSelected":"Item selected."};
+/* ]]> */
+
+
+
+
+
+
+
+
+
+
+
+/* <![CDATA[ */
+var wssmap = {"marker_color":"#8B0150","single_zoom":"14"};
+/* ]]> */
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* <![CDATA[ */
+var ws = {"logo":"https:\/\/jobs.sevendaysvt.com\/wp-content\/uploads\/2017\/02\/sevendays-jobs-1x.png","retinalogo":"https:\/\/jobs.sevendaysvt.com\/wp-content\/uploads\/2017\/02\/sevendays-jobs-2x.png","transparentlogo":"https:\/\/jobs.sevendaysvt.com\/wp-content\/uploads\/2017\/02\/sevendays-jobs-rev1x.png","transparentretinalogo":"https:\/\/jobs.sevendaysvt.com\/wp-content\/uploads\/2017\/02\/sevendays-jobs-rev2x.png","ajaxurl":"\/wp-admin\/admin-ajax.php","theme_color":"#8B0150","woo_account_page":"","theme_url":"https:\/\/jobs.sevendaysvt.com\/wp-content\/themes\/workscout","header_breakpoint":"1290","no_results_text":"No results match"};
+/* ]]> */
+
+
+
+
+
+var essb_settings = {"ajax_url":"https:\/\/jobs.sevendaysvt.com\/wp-admin\/admin-ajax.php","essb3_nonce":"bde0795366","essb3_plugin_url":"https:\/\/jobs.sevendaysvt.com\/wp-content\/plugins\/easy-social-share-buttons3","essb3_stats":true,"essb3_ga":false,"essb3_ga_ntg":false,"blog_url":"https:\/\/jobs.sevendaysvt.com\/","post_id":"8732","internal_stats":true};
+
+
+
+
+/* <![CDATA[ */
+var _wpUtilSettings = {"ajax":{"url":"\/wp-admin\/admin-ajax.php"}};
+/* ]]> */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* <![CDATA[ */
+var um_scripts = {"max_upload_size":"10485760","nonce":"b765ca5587"};
+/* ]]> */
+
+
+
+
+
+
+
+/* <![CDATA[ */
+var job_manager_ajax_filters = {"ajax_url":"\/jm-ajax\/%%endpoint%%\/","is_rtl":"0","lang":"","i18n_load_prev_listings":"Load previous listings","salary_min":null,"salary_max":"0","rate_min":"0","rate_max":"0","single_job_text":"job offer","plural_job_text":"job offers","currency":"$","currency_postion":"before"};
+/* ]]> */
+
+
+    
+        (function($){
+        
+
+        $(document).ready(function(){
+
+            $( '.sc-jobs #search_keywords' ).autocomplete({
+                
+                source: function(req, response){
+                    $.getJSON('https://jobs.sevendaysvt.com/wp-admin/admin-ajax.php'+'?callback=?&action=workscout_incremental_jobs_suggest', req, response);
+                },
+                select: function(event, ui) {
+                    window.location.href=ui.item.link;
+                },
+                minLength: 3,
+            }); 
+         });
+
+        })(this.jQuery);
+
+           
+        
+        (function($){
+        
+
+        $(document).ready(function(){
+
+            $( '.sc-resumes #search_keywords' ).autocomplete({
+                
+                source: function(req, response){
+                    $.getJSON('https://jobs.sevendaysvt.com/wp-admin/admin-ajax.php'+'?callback=?&action=workscout_incremental_resumes_suggest', req, response);
+                },
+                select: function(event, ui) {
+                    window.location.href=ui.item.link;
+                },
+                minLength: 3,
+            }); 
+         });
+
+        })(this.jQuery);
+
+           
+    		
+			jQuery( window ).on( 'load', function() {
+				jQuery('input[name="um_request"]').val('');
+			});
+		
+	
+
+
+
+
