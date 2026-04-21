@@ -8,6 +8,7 @@ and orchestration of LLM-powered applications.
 
 - **Week 1: Architecture & API Layer** (Structured Outputs, AWS Lambda, DynamoDB)
 - **Week 2: Orchestration Framework** (Prompt Templates, Chains + Memory, Document Loaders, Verified Extraction)
+- **Week 3: Tools & Agent** (Custom Tools, ReAct Framework, Cloud Native Actions, Phase 1 Capstone)
 
 ## 🛠️ Tech Stack
 
