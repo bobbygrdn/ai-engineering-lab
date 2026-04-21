@@ -1,6 +1,6 @@
 # 12-Week AI Engineering Intensive
 
-This repository tracks my transition from a Computer Science background into AI Engineering.
+This repository tracks my transition from a Full Stack Developer into AI Engineering.
 The goal is to move beyond simple chat interfaces and master the architecture, deployment,
 and orchestration of LLM-powered applications.
 
