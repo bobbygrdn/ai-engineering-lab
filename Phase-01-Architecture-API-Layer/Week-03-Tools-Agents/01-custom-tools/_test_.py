@@ -1,6 +1,6 @@
 import unittest
 from unittest.mock import patch, Mock
-
+from pydantic import ValidationError
 from tools import add, fetch_number_fact
 
 class TestTools(unittest.TestCase):
@@ -87,15 +87,10 @@ class TestTools(unittest.TestCase):
     @patch("tools.requests.get")
     def test_fetch_number_fact_non_integer(self, mock_get):
         self.print_section("test_fetch_number_fact_non_integer")
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.text = "Not a number"
-        mock_get.return_value = mock_response
-
-        result = fetch_number_fact.run({"number": "notanumber"})
-        print(f"fetch_number_fact('notanumber') = {result}")
-        self.assertEqual(result, "Not a number", "Should handle non-integer input gracefully")
-        mock_get.assert_called_once_with("http://numbersapi.com/notanumber")
+        print("Testing fetch_number_fact with a non-integer input ('notanumber'). Expecting ValidationError.")
+        with self.assertRaises(ValidationError):
+            fetch_number_fact.run({"number": "notanumber"})
+        print("fetch_number_fact('notanumber') = ValidationError was correctly raised for non-integer input.")
 
 if __name__ == "__main__":
     print("\nRunning all tests for custom LangChain tools...\n")
