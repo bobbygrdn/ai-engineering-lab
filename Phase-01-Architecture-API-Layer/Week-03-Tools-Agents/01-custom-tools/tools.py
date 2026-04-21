@@ -2,7 +2,7 @@ import requests
 from langchain.tools import tool
 
 @tool
-def add(a, b):
+def add(a: float, b: float) -> float:
     """
     Adds two numbers and returns the result.
     Args:
@@ -14,7 +14,7 @@ def add(a, b):
     return a + b
 
 @tool
-def fetch_number_fact(number):
+def fetch_number_fact(number: int) -> str:
     """
     Fetches a fact about a number from the Numbers API.
     Args:
