@@ -11,6 +11,18 @@ and orchestration of LLM-powered applications.
 
 ## 🛠️ Tech Stack
 
-- **Languages:** Python
+- **Languages:** Python, TypeScript
+- **Runtime:** Node.js (v20)
 - **AI:** OpenAI API, LangChain
-- **Cloud:** AWS (Lambda, API Gateway, DynamoDB)
+- **Cloud:** AWS (Lambda, API Gateway, DynamoDB, Secrets Manager, IAM)
+- **Tooling:** Zod, Pydantic, esbuild, npm
+
+## 📚 Phase 01: Architecture & API Layer
+
+High-level focus areas covered in `Phase-01-Architecture-API-Layer/`:
+
+- **Structured Outputs:** Enforcing reliable JSON contracts for LLM responses.
+- **Orchestration:** Building reusable chains (LCEL), prompt templates, and parallel workflows.
+- **Serverless APIs:** Deploying LLM-backed services on AWS Lambda (Function URLs).
+- **Persistent Memory:** Session-based state using DynamoDB chat history.
+- **Verified Extraction:** Grounding outputs with evidence quotes from ingested documents.
