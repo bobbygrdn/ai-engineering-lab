@@ -6,7 +6,7 @@ The goal is to move beyond simple chat interfaces and master the architecture, d
 ## 🚀 The Roadmap
 
 - Phase 1 - The Control Layer
-  - **_Week 1: Type-Safety & Tokenomics_**
+  - **Week 1: Type-Safety & Tokenomics**
   - **Week 2: State & Memory Architecture**
   - **Week 3: Agentic Reasoning & Tool Use**
 - Phase 2 - Information Retrieval Theory
@@ -67,7 +67,7 @@ High-level focus areas covered in `Phase-03-Model-Adaptation/`:
 High-level focus areas covered in `Phase-04-Systems-Reliability-and-MLOps/`:
 
 - **Inference Portability & Optimization:** Mastering **Multi-Stage Docker builds** to create lightweight, immutable artifacts. Implementing **GPU Passthrough** (NVIDIA-Container-Toolkit) to ensure high-performance, bit-for-bit identical inference across local and cloud environments.
-- **Enterprise Model Orchestration:** Architecting secure model consumption via **Amazon Bedrock**, utilizing the latest **Claude Opus 4.7** models. **Implementing **Z**ero-Operator Data Access** protocols to ensure sensitive data remains encrypted and invisible to service providers.
+- **Enterprise Model Orchestration:** Architecting secure model consumption via **Amazon Bedrock**, utilizing the latest **Claude Opus 4.7** models. **Implementing **Zero-Operator Data Access** protocols to ensure sensitive data remains encrypted and invisible to service providers.
 - **Identity & Access Management (IAM) for AI:** Designing **Least Privilege** security policies and session-based cost attribution. Ensuring that AI agents have scoped permissions only to the specific models and databases required for the task.
 - **Automated MLOps Pipelines:** Engineering **CI/CD/CT (Continuous Testing)** workflows using GitHub Actions. Implementing **Blue/Green Deployment** strategies to shift traffic safely between model versions without downtime or regression.
 - **Agnostic Tracing & Observability:** Integrating **OpenTelemetry** and **Arize Phoenix** for distributed tracing. Analyzing "Spans" to identify latency bottlenecks in the firewall, router, or inference layers.
