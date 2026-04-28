@@ -1,10 +1,29 @@
 # Part 2: Tokenomics & Inference Math
 
-## Overview
+## Terms
+
+- **Tokenomics**
+- **Inference Math**
+- **Unit Economics**
+- **API Response**
+- **Usage Metadata**
+- **Wrapper (in code)**
+- **TTFT (Time to First Token)**
+- **Total Duration**
+- **LaTeX**
+- **Real-time User Interface**
+
+## Key Concepts
+
+- Measuring and analyzing the cost of API calls (unit economics)
+- Capturing and structuring metadata from API responses
+- Calculating and comparing time-based performance metrics (TTFT vs. total duration)
+- Using mathematical notation (LaTeX) for clarity and precision in cost formulas
+- Determining thresholds for "real-time" performance in user interfaces
+
+## Implementation Overview
 
 This project extends the schema-enforced support ticket classifier with advanced LLM usage analytics, cost estimation, and real-time streaming metrics. It demonstrates how to measure, log, and optimize the economics and latency of LLM-powered workflows.
-
-## Key Features
 
 - **Streaming LLM Inference:**
   Real-time support ticket classification using OpenAI’s streaming API, with precise measurement of Time To First Token (TTFT) and total response duration.
