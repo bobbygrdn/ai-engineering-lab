@@ -28,8 +28,6 @@
 - Designing prompts for structured, schema-compliant outputs
 - Classification challenges in support ticket systems
 
----
-
 ## Implementation Overview
 
 This project implements a robust, schema-enforced AI pipeline for classifying support tickets from unstructured email text. Key features include:
@@ -45,29 +43,41 @@ This project implements a robust, schema-enforced AI pipeline for classifying su
 
 ## How It Works
 
-1. **Input**: User email text is provided to the classifier.
-2. **Classification**: The LLM is prompted to extract `priority`, `department`, and a concise `summary`.
-3. **Schema Enforcement**: Output is validated against the Pydantic model. If invalid, the system retries with the same or improved prompt.
-4. **Logging**: Each attempt and result is logged. Unclear or invalid outputs are collected for review.
-5. **Output**: Only schema-compliant, validated support tickets are returned.
+1. **Input** : Unstructured email text is provided.
+2. **Prompting** : The email is sent to the LLM via the Instructor library, with a schema (Pydantic model) specifying required fields.
+3. **Validation** : The LLM's output is validated against the schema.
+4. **Retry Logic** : If validation fails, the process retries up to a set limit.
+5. **Logging** : All attempts, errors, and invalid outputs are logged.
+6. **Output** : On success, a structured support ticket (priority, department, summary) is returned and printed.
 
 ---
 
 ## Example Usage
 
 ```python
-ticket = classify_support_ticket_with_retries(email_text)
-print_ticket(ticket)
+if __name__ == "__main__":
+    email_text_list = [
+        "Hello, I was charged twice for my subscription and I need a refund. Please help me resolve this issue as soon as possible.",
+        "My internet connection is very slow and keeps dropping. Can you please assist me in fixing this problem?",
+        "I have a question about your product features. Can you provide more information on how to use the advanced settings?",
+        "Help!",
+        "My account is locked, but I also want to change my billing address.",
+        "jfodhafdsafhdslkafj"
+    ]
+    for email_text in email_text_list:
+        ticket = classify_support_ticket_with_retries(email_text)
+        print_ticket(ticket)
 ```
 
 ---
 
 ## Next Steps & Improvements
 
-- Analyze `invalid_outputs.jsonl` to refine prompts and improve reliability.
-- Add automated tests for regression and edge cases.
-- Visualize or summarize logs for insights.
-- Expand the schema or add new fields as needed.
+- Add unit tests for edge cases and malformed inputs
+- Parameterize retry logic and logging for production use
+- Integrate with real support ticketing systems or APIs
+- Enhance prompt engineering for better LLM compliance
+- Track and visualize validation error rates and retry statistics
 
 ---
 
