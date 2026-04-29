@@ -25,82 +25,58 @@
 - Model selection based on intent complexity: Using lightweight methods to triage requests and route them to the most cost-effective model.
 - Model-agnostic business logic: Decoupling business logic from model specifics, relying on standardized outputs.
 - Inference efficiency and cost optimization: Ensuring that computational resources (and thus costs) are matched to the complexity of the task.
-- Validation and standardization: Using Pydantic to enforce output schemas regardless of model source
+- Validation and standardization: Using Pydantic to enforce output schemas regardless of model source.
 
-## Overview
+## Implementation Overview
 
-This project implements a deterministic wrapper and intelligent router for AI-powered support ticket handling. It encapsulates unpredictable AI behavior behind a controlled, model-agnostic interface, using decision gates to optimize inference efficiency and cost. The system leverages Pydantic for schema validation and standardization, ensuring reliable outputs regardless of the underlying model.
+This project implements a Python-based service for classifying and routing support tickets using a deterministic wrapper and an intelligent router. The system encapsulates AI model unpredictability behind a unified, Pydantic-validated interface, optimizing for inference efficiency and cost. Key features include:
 
-- Deterministic API wrapper for AI inference with timing and token usage tracking
-- Intelligent routing between SLM (Small Language Model) and Frontier Model based on intent complexity
-- Regex-based intent classifier for lightweight triage
-- Unified, model-agnostic interface for business logic
-- Pydantic-based schema validation for all inputs/outputs
-- Logging of invalid outputs for audit and debugging
-- Cost calculation for inference based on token usage
+- Pre-inference intent classification (Decision Gate) using keyword/regex logic.
+- Routing to either a Small Language Model (SLM) or a more capable Frontier Model based on intent complexity.
+- Model-agnostic business logic via standardized Pydantic objects.
+- Cost and token usage tracking for unit economics and tokenomics analysis.
+- Logging and validation of outputs, with error handling and retries.
 
 ## How It Works
 
-1. **Input** : A support ticket text is received.
-2. **Intent Classification** : The [classify_intent()](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) function uses regex/keyword matching to determine if the request is "simple" or "complex".
-3. **Routing Gate** :
+1. **Input** : User submits a support ticket (email text).
+2. **Decision Gate** : The system classifies the intent using keyword/regex logic to determine complexity.
+3. **Routing** :
 
-- "Simple" intents are routed to the [SLMModel](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html).
-- "Complex" intents are routed to the [FrontierModel](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html).
+- If intent is "simple", the SLM model handles the request.
+- If "complex", the Frontier Model is used.
 
-1. **Inference** : The selected model generates a response, wrapped by [api_wrapper](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) to measure duration and token usage.
-2. **Validation** : All outputs are validated against Pydantic schemas ([SupportTicket](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html), [SupportResponse](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html)).
-3. **Logging** : Invalid outputs are logged for review.
-4. **Output** : The standardized response, including metadata (duration, token usage, model), is returned.
+1. **Inference** : The selected model generates a response, encapsulated in a Pydantic object.
+2. **Validation** : Output is validated against the schema; errors are logged and retried if needed.
+3. **Cost & Metrics** : Token usage, duration, and cost are tracked and logged.
+4. **Output** : The standardized response is returned to the user.
 
 ## Example Usage
 
 ```
-service = SupportAIService()
-test_cases = [
-    "Can you check the status of my ticket?",
-    "Thank you for your help, please close the ticket.",
-    "I was charged twice for my subscription and need a refund.",
-    "There is an error when I try to log in.",
-    "Just wanted to say thanks!"
-]
+from schema import SupportAIService
 
-for i, text in enumerate(test_cases, 1):
-    print(f"\nTest case {i}: {text}")
-    response = service.handle_ticket(text)
-    print(f"Intent: {response.intent}")
-    print(f"Response: {response.response_text}")
-    print(f"Metadata: {response.metadata.model_dump()}")
+service = SupportAIService()
+response = service.handle_ticket("I was charged twice for my subscription and need a refund.")
+print(response.intent)         # "complex"
+print(response.response_text)  # "This is a complex response generated by Frontier."
+print(response.metadata)       # Includes duration, token usage, model info
 ```
 
-## Implementation Highlights
+Or, from the CLI:
 
-- **Deterministic Wrapper** : See [api_wrapper](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) in [main.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html).
-- **Intelligent Router** : See [SupportAIService](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) and [classify_intent](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) in [schema.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html).
-- **Python Service Class** : [SupportAIService](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) in [schema.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html).
-- **Decision Gate / Routing Gate** : [classify_intent](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) and routing logic in [schema.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html).
-- **Inference** : [infer_response](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) methods in [SLMModel](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) and [FrontierModel](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) ([schema.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html)).
-- **Intent Complexity** : Keyword-based in [classify_intent](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) ([schema.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html)).
-- **SLM / Frontier Model** : Implemented as classes in [schema.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html).
-- **Pydantic object** : [SupportTicket](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html), [SupportResponse](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html), [Metadata](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) in [schema.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html).
-- **Model-Agnosticism** : Unified interface in [ModelInterface](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) ([schema.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html)).
-- **Inference Efficiency** : Routing and timing in [main.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) and [schema.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html).
-- **Unit Economics of AI / Tokenomics** : Cost calculation in [calulate_price](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) ([main.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html)).
-- **Regex classifier** : [classify_intent](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) ([schema.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html)).
-- **Unified interface** : [SupportAIService.handle_ticket](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html) ([schema.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/10c8e557c8/resources/app/out/vs/code/electron-browser/workbench/workbench.html)).
-
-## **Tech Stack** :
-
-- Python 3
-- Pydantic
-- OpenAI, Instructor (for model APIs)
-- dotenv, logging, tabulate, tiktoken
+```
+if __name__ == "__main__":
+    email_text = "Hello, I was charged twice for my subscription and I need a refund. Please help me resolve this issue as soon as possible."
+    response, metadata = classify_support_ticket_stream(email_text)
+    print_ticket(response)
+```
 
 ## Next Steps
 
-- Integrate real token counting and cost calculation for each model
-- Expand intent classification with more advanced NLP or ML
-- Add unit and integration tests for all routing and validation logic
-- Support additional models and dynamic model selection
-- Expose as a REST API (e.g., with FastAPI)
-- Add monitoring for latency, error rates, and cost per request
+- Integrate more advanced intent classification (e.g., ML-based or hybrid regex+ML).
+- Expand model selection logic for additional models or cost tiers.
+- Add more granular cost tracking and reporting.
+- Implement async support for higher throughput.
+- Enhance schema validation and error reporting.
+- Add unit and integration tests for all routing and validation logic.
