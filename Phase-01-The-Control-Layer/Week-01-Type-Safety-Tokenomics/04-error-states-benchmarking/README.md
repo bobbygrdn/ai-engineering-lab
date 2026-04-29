@@ -39,12 +39,12 @@ This project benchmarks an AI-powered support ticket classification system, focu
 ## How It Works
 
 1. **Input** : A list of test support emails is defined in the benchmark module.
-2. **Processing** : Each email is processed by [process_email], which:
+2. **Processing** : Each email is processed by **process_email**, which:
    - Checks for empty prompts, rate limit, or refusal triggers.
    - Calls the LLM to classify the ticket and generate a response.
-   - Validates the output against the [SupportTicket]schema.
+   - Validates the output against the **SupportTicket** schema.
    - Handles and logs errors (validation, refusal, rate limit, empty prompt).
-3. **Error Handling** : Custom exceptions are raised for rate limits, empty prompts, and refusals. Invalid outputs are logged to [invalid_outputs.jsonl].
+3. **Error Handling** : Custom exceptions are raised for rate limits, empty prompts, and refusals. Invalid outputs are logged to **invalid_outputs.jsonl**.
 4. **Benchmarking** : For each email, the result (validity and cost) is recorded.
 5. **Metrics** : After all emails are processed:
    - Accuracy (valid outputs / total).
