@@ -1,9 +1,10 @@
 from pydantic import ValidationError
 from schema import SupportTicket
 from engine import instructor_client, openai_client
-import os
 from tabulate import tabulate
 from logger import logging, log_invalid_output
+from errors import RateLimitError, EmptyPromptError, RefusalError, ModelError
+import os
 import json
 import re
 import time
@@ -130,8 +131,22 @@ def print_ticket(ticket):
     else:
         logging.error("Failed to classify the support ticket.")
 
+def process_email(email_text):
+    try:
+        if not email_text.strip():
+            raise EmptyPromptError()
+        if "rate limit" in email_text.lower():
+            raise RateLimitError()
+        if "refused" in email_text.lower():
+            raise RefusalError()
+        result = classify_support_ticket_stream(email_text)
+        return result
+    except (RateLimitError, EmptyPromptError, RefusalError, ModelError) as e:
+        logging.error(f"{type(e).__name__}: {e}")
+        log_invalid_output(email_text, None, e)
+        return None, None
 
 if __name__ == "__main__":
     email_text = "Hello, I was charged twice for my subscription and I need a refund. Please help me resolve this issue as soon as possible."
-    response, metadata = classify_support_ticket_stream(email_text)
+    response, metadata = process_email(email_text)
     print_ticket(response)
