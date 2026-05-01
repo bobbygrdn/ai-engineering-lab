@@ -1,46 +1,61 @@
-# Part 1: Orchestration & Frameworks (Day 1 & 2)
+# Part 1: The Working Memory (Context Construction)
 
-## Objective
+## Terms
 
-To transition from basic AI prompting to a **production-grade orchestration layer** . This phase focused on standardizing the "handshake" between software and LLMs through strict schema enforcement and implementing **Semantic Intelligence** to clean and deduplicate data conceptually.
+- System/User/Assistant message structure
+- ConversationBuilder class
+- Message object
+- Prompt formatting
+- Hard Token Limit (4,000 tokens)
+- Sliding Window
+- Token counting
 
-## Key Technical Accomplishments
+## Key Concepts
 
-- **Native Structured Output:** Optimized the extraction pipeline by utilizing LangChain's `withStructuredOutput` method, replacing legacy string-parsing logic with native **Zod-backed** schema enforcement.
-- **Semantic Intelligence (80/20 Principle):** Focused on the high-impact "20%" of logic— **Semantic Deduplication** . Utilizing `OpenAIEmbeddings` and **Cosine Similarity** , the orchestrator resolves duplicates based on meaning (e.g., catching "Fix bug" vs. "Resolve issue") rather than character matching.
-- **Parallel Orchestration:** Engineered a `RunnableLambda` using the native `.batch()` method to handle concurrent LLM calls for multiple text chunks, significantly reducing latency compared to sequential processing.
-- **Ditching Hardcoded Strings:** Migrated all system logic to **ChatPromptTemplates** , separating the "Brain" (System Instructions) from the "Data" (User Input) to ensure reusable and maintainable prompt logic.
-- **Type-Safe Pipeline:** Leveraged TypeScript and `z.infer` to ensure 100% type safety from the moment the LLM responds to the final deduplicated object, preventing runtime "property undefined" errors.
+- Context construction: How to build a prompt from a sequence of messages.
+- Token budgeting: Ensuring the prompt does not exceed a maximum token count.
+- Sliding window algorithm: Retaining the most recent messages by dropping the oldest when over budget.
+- Role-based message formatting: Distinguishing between system, user, and assistant messages.
 
-## Technical Architecture
+## Implementation Overview
 
-- **Orchestration:** [LangChain](https://js.langchain.com/) (TypeScript/LCEL) for functional composition.
-- **Validation:** [Zod](https://zod.dev/) for strict schema enforcement.
-- **Semantic Analysis:** `OpenAIEmbeddings` (text-embedding-3-small) for vector-based similarity checking.
-- **Models:** GPT-4o for high-accuracy extraction and structured data generation.
-- **Execution:** Node.js 20.x environment via `tsx` for rapid, type-safe development.
+This module implements a ConversationBuilder class to manage a conversation history for prompt construction, enforcing a strict token budget (default 4,000 tokens). It uses a sliding window algorithm to retain the most recent messages, dropping the oldest non-system messages when the token limit is exceeded. Messages are structured as MessageObject instances with role and content fields, and are formatted for API compatibility. Token counting is performed using the tiktoken library. The system tracks and persists conversation state and token metrics in a JSON file.
 
-## Proof of Work
+**Primary capabilities:**
 
-The system successfully processes overlapping, messy meeting segments and collapses them into a singular, high-confidence "Source of Truth":
+- Add messages with roles (system, user, assistant)
+- Enforce a hard token limit using a sliding window
+- Format prompts for API consumption
+- Persist and reload conversation state and metrics
 
-| **Sequence** | **Input Chunks**                                       | **AI Response (Stateful Deduplication)**                              |
-| ------------ | ------------------------------------------------------ | --------------------------------------------------------------------- |
-| **Batch 1**  | "Robert needs to fix the API bug by Friday."           | **Unique Task:**Fix the API bug by Friday.                            |
-| **Batch 2**  | "Robert must resolve the issue with the API endpoint." | **Status:**Corrected identified as a duplicate via Vector Similarity. |
+## How It Works
 
-## Execution Success (Console Log):
+1. **Initialization** : ConversationBuilder loads conversation history and token limits from a metrics JSON file.
+2. **Adding Messages** : New messages are appended and the conversation is trimmed using a sliding window to stay within the token limit, always preserving system messages.
+3. **Token Counting** : Each message's token count is estimated using tiktoken.
+4. **Sliding Window** : If the token limit is exceeded, the oldest non-system messages are removed until the budget is met.
+5. **Prompt Formatting** : Messages are ordered (system, user, assistant) and formatted as required by the OpenAI API.
+6. **Persistence** : Conversation state and token metrics are saved to a JSON file after each update.
+
+## Example Usage
 
 ```
-🚀 Running Professional Orchestrator...
-{
-  "summary": "The project is progressing well, but an API bug needs fixing by Friday.",
-  "action_items": [
-    {
-      "task": "Fix the API bug by Friday.",
-      "assignee": "Robert",
-      "priority": "High"
-    }
-  ]
-}
+if __name__ == "__main__":
+    # Add a token limit to the first instantiation, then remove the token limit and it will pull from the json file
+    conversation_builder = ConversationBuilder(token_limit=500)
+
+    # Change up these message statements each time to simulate a user talking with your AI system.
+    conversation_builder.add_message("user", "Thank you. I think that is all I need.")
+    conversation_builder.add_message("assistant", "You're welcome! If you have any more questions in the future, feel free to ask. Have a great day!")
+    print(conversation_builder.format_prompt())
+    print(f"Current tokens: {conversation_builder.current_tokens}")
+    print(f"Token Limit: {conversation_builder.token_limit}")
 ```
+
+Next Steps
+
+- Add unit tests for edge cases (e.g., only system messages, rapid message addition).
+- Parameterize the model for tiktoken to support different LLMs.
+- Add support for message metadata (timestamps, IDs).
+- Integrate with a live API for real-time prompt submission and response handling.
+- Implement logging for token overflows and message drops.
