@@ -1,37 +1,72 @@
-# Part 2: Chains & Automated Memory (Day 3 & 4)
+# Part 2: Durable State & Attention Optimization
 
-## Objective
+## Terms
 
-To move beyond manual history handling and implement a **self-managing state layer** . This phase focused on utilizing **LangChain Expression Language (LCEL)** to build a cohesive pipeline that automatically handles persistence via DynamoDB and enforces a sliding "Window Memory" to optimize token costs and performance.
+- Durable State
+- Hydration / Hydrated
+- Mind (as a data structure)
+- Typed Memories (Preferences, Past Issues, System Context)
+- SQLite / JSON schema
+- State Bridge
+- Structural Assembly rule
+- Attention Peaks (top/bottom of prompt)
+- Low-Attention zone (middle of prompt)
+- Write-Back
+- Probabilistic Recall
+- Prompt Jockey
+- Dangerous Engineer
+- Attention Architecting
 
-## Key Technical Accomplishments
+## Key Concepts
 
-- **Automated Memory Orchestration:** Migrated from manual database read/write logic to LangChain’s native `DynamoDBChatMessageHistory`. This allows the orchestrator to automatically "remember" and "append" session data without custom glue code.
-- **Sliding Window Implementation (80/20 Rule):** Applied a **$K=10$** window limit via an LCEL trimmer. By only passing the last 20 messages to the LLM, the system maintains the high-impact "20%" of current context while pruning irrelevant history to save on costs and latency.
-- **Production-Grade Execution (.mjs):** Transitioned to an ECMAScript Module ( **ESM** ) environment to utilize **Top-Level Await** . This allows the Lambda to fetch secrets and initialize the model once during the "Cold Start," significantly accelerating subsequent "Warm Start" invocations.
-- **Unified LCEL Pipeline:** Replaced fragmented function calls with a single `RunnableWithMessageHistory` chain. This pipeline links the prompt, the window-trimmer, the model, and the `StringOutputParser` into one declarative handshake.
-- **Zero-Trust Security:** Maintained strict security protocols by utilizing **AWS Signature V4** with **MFA enforcement** , ensuring that only authenticated sessions with temporary credentials can trigger the API.
+- Persistence: Storing state in a durable, queryable format (SQLite/JSON).
+- Memory Typing: Categorizing memories for targeted retrieval and update.
+- Hydration: Loading stored state into a working memory or prompt context.
+- Attention Optimization: Placing information in a prompt to maximize LLM recall, leveraging the model’s bias toward sequence edges.
+- Structural Assembly: Systematic arrangement of prompt content by priority.
+- Write-Back Loop: Updating persistent state with new facts after inference.
+- Probabilistic Recall: Understanding and exploiting the LLM’s attention distribution for reliable information retrieval.
 
-## Technical Architecture
+## Implementation Overview
 
-- **Orchestration:** [LangChain](https://js.langchain.com/) (LCEL) for declarative chain composition.
-- **State Store:** [Amazon DynamoDB](https://aws.amazon.com/dynamodb/) for persistent, serverless message history.
-- **Security:** [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/) for encrypted API key retrieval.
-- **Model:** OpenAI `gpt-4o-mini` for high-speed, cost-effective reasoning.
-- **Deployment:** AWS Lambda (Node.js 20.x) with custom `esbuild` ESM-shim for legacy dependency compatibility.
+This project implements a memory-augmented LLM prompt system with the following primary capabilities:
 
-| **Sequence**   | **User Input**                | **AI Response (State Awareness)**                                         |
-| -------------- | ----------------------------- | ------------------------------------------------------------------------- |
-| **Request 1**  | "My name is Robert."          | "Nice to meet you, Robert! How can I assist you today?"                   |
-| **Request 2**  | "What is my name?"            | "Your name is Robert."                                                    |
-| **Request 12** | [After 10 intermediate turns] | **Window Shift:**History for Request 1 is pruned to maintain performance. |
+- Persistent storage of "typed memories" (preferences, past issues, system context) in a JSON file.
+- Hydration: Loading and prioritizing memories by recency.
+- Attention optimization: Assembling prompts to place high-priority information at the top/bottom (Attention Peaks) and less critical data in the middle (Low-Attention Zone).
+- Write-back: Parsing LLM responses and updating persistent state.
+- Probabilistic recall: Using recency and type to maximize LLM retrieval reliability.
 
-## Execution Success (CloudWatch Sanitized):
+## How It Works
+
+1. **Startup** : The main script loads environment variables and ensures the memories.json file exists.
+2. **User Input** : The user provides a message for the LLM.
+3. **Hydration** : The system loads and prioritizes memories from the JSON file, sorting by timestamp.
+4. **Prompt Assembly** : The prompt is constructed, placing preferences and system context at the edges, and past issues in the middle.
+5. **LLM Call** : The prompt is sent to the LLM (via OpenAI API).
+6. **Write-Back** : The LLM response is parsed and appended as a new "past issue" in the persistent memory file.
+7. **Logging** : All interactions are logged for traceability.
+
+## Example Usage
 
 ```
-INFO  Secret Keys Found: [ 'OPENAI_API_KEY' ]
-INFO  EVENT RECEIVED: {"sessionId": "dev-session-001", "input": "What is my name?"}
-INFO  DynamoDB: Successfully retrieved 12 messages for session: dev-session-001
-INFO  Memory: Trimming history to last 20 messages (K=10).
-REPORT RequestId: [REDACTED]  Duration: 512.42 ms  Billed Duration: 513 ms  Max Memory Used: 145 MB
+# Example: Running the main workflow
+# (from src/main.py)
+if __name__ == "__main__":
+    main()
 ```
+
+```
+# Example: Generating large test data
+# (from test/generate_test_data.py)
+with open("memories.json", "w") as f:
+    json.dump(large_memories, f, indent=2)
+```
+
+## Next Steps
+
+- Implement more advanced memory retrieval (e.g., semantic search, embedding-based recall).
+- Add support for SQLite as a backend for scalable, queryable state.
+- Enhance the prompt assembly logic to dynamically adjust attention zones based on LLM context window.
+- Integrate more robust error handling and schema validation.
+- Track and visualize attention distribution and recall metrics for continuous optimization.
