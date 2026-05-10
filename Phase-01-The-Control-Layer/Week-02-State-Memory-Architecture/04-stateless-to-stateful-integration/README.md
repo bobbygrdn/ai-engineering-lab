@@ -1,77 +1,75 @@
-# Part 4: Serverless AI Orchestration
+# Part 4: Stateless to Stateful Integration
 
-## Objective
+## Terms
 
-The final goal of Week 2 was to package the "Fresh Start" logic—including prompt templates, document loaders, and structured output parsers—into a dedicated, production-ready AWS Lambda function.
+- Stateless: A system that does not retain user/session data between requests.
+- Stateful: A system that remembers user/session data across requests.
+- Durable State Store: A persistent storage mechanism (e.g., database, file, Redis) that survives process restarts and time gaps.
+- LLM (Large Language Model): The AI model handling user queries.
+- API Request: A call made to your backend service, simulating user interaction.
+- Logs: Records of system actions, used to verify correct behavior.
 
-## Architecture: The "Extractor" Microservice
+## Key Concepts
 
-Rather than bloating the existing project-manager-api, a new specialized Lambda function, `Job-Listing-Extractor`, was created to handle high-latency web scraping and extraction tasks.
+- Session Continuity: The ability to link separate requests to the same user over time.
+- Identity Recognition: Mechanism for associating requests with a user (e.g., via token, session ID).
+- State Hydration: Loading user state from the durable store at the start of each request.
+- State Persistence: Saving updated user state back to the durable store after each request.
+- Test Simulation: Mimicking real-world usage by spacing out requests and verifying state recall.
 
-### Infrastructure Details
+## Implementation Overview
 
-- **Runtime:** Node.js 20.x (ESM/NodeNext).
-- **Compute:** 512MB RAM / 30-second Timeout (Optimized for LLM processing times).
-- **Trigger:** Lambda Function URL (Auth Type: AWS_IAM).
-- **Security:** MFA-enforced SigV4 authentication via Postman and AWS Secrets Manager for OpenAI credential rotation.
+This project demonstrates the transition from a stateless to a stateful architecture for LLM-driven user interactions. It uses SQLite as a durable state store to persist user data, memories, and messages. The system supports user registration, authentication, and session continuity, ensuring that user context is loaded and updated with each interaction. Logging is implemented for traceability.
 
-## Lessons Learned
+**Primary capabilities:**
 
-### 1. Dependency Resolution in Rapid Ecosystems
+- User registration and authentication
+- Persistent storage of user memories and messages
+- Prompt assembly for LLM using user-specific context
+- Logging of all interactions
+- Automated test simulation of multi-step user flows
 
-The LangChain ecosystem moves quickly, often leading to `ERESOLVE` dependency tree errors during scaffolding. The fix for this environment was setting `legacy-peer-deps=true` in the NPM configuration, allowing the build to proceed without strict version-matching failures that hinder rapid development.
+## How It Works
 
-### 2. Hallucination Mitigation through Grounding
+1. **Startup:** The application initializes database tables for users, memories, and messages.
+2. **User Action:** The user selects to register or log in. Credentials are handled securely.
+3. **Identity Recognition:** Upon login, the user is authenticated and assigned a unique user ID.
+4. **State Hydration:** User-specific memories are loaded from the database.
+5. **Interaction:** The user sends a message. The system assembles a prompt using both the current message and relevant past memories.
+6. **LLM Processing:** The prompt is sent to the LLM (e.g., OpenAI GPT-4o-mini), and a response is generated.
+7. **State Persistence:** The response and any new facts are parsed and written back to the database as new memories.
+8. **Logging:** All actions are logged for traceability.
+9. **Test Simulation:** The integration test script simulates real user flows, including registration, login, and state recall across sessions.
 
-Probabilistic models tend to "fill in the blanks" when data is missing (e.g., imagining tech stacks for non-technical roles). To eliminate this, the pipeline was updated to require **Verbatim Evidence Quotes** . By forcing the model to provide a direct string from the source text, we created an automated audit trail that ensures 100% grounding in reality.
-
-### 3. Resource Allocation for Scrapers
-
-Standard Lambda defaults (3s timeout/128MB RAM) are insufficient for the multi-step process of loading external URLs, parsing HTML, and executing LLM extractions. Increasing resources to 512MB and a 30-second timeout provided the necessary headroom for consistent performance.
-
-## Technical Accomplishments
-
-- **Remote Document Loading:** Integrated `CheerioWebBaseLoader` into the serverless environment to fetch live HTML directly from the cloud.
-- **Verified Extraction Logic:** Implemented a self-correcting prompt that requires verbatim "Evidence Quotes" for every extracted tech stack, eliminating model hallucinations.
-- **Warm-Start Optimization:** Strategically placed the `SecretsManagerClient` initialization outside the main handler to reduce latency across concurrent requests.
-- **Schema Enforcement:** Leveraged Zod and `withStructuredOutput` to ensure 100% data integrity for downstream services.
-
-## Tech Stack
-
-- **Language:** [TypeScript](https://www.typescriptlang.org/) (ESM / NodeNext)
-- **Cloud Infrastructure:** [AWS Lambda](https://aws.amazon.com/lambda/) (Function URLs), [AWS Secrets Manager](https://aws.amazon.com/secrets-manager/)
-- **AI Framework:** [LangChain](https://js.langchain.com/) (Core, Community, OpenAI)
-- **LLM Model:** [OpenAI gpt-4o-mini](https://www.google.com/search?q=https://openai.com/index/gpt-4o-mini/)
-- **Data Ingestion:** [Cheerio](https://cheerio.js.org/) (Web Scraping)
-- **Validation:** [Zod](https://zod.dev/) (Schema Enforcement)
-- **Development Tools:** [npm](https://www.npmjs.com/), [esbuild](https://esbuild.github.io/) (Bundling)
-
-## Production Verification
-
-**Endpoint:** `<YOUR_LAMBDA_FUNCTION_URL>`
-
-### Sample Request
+## Example Usage
 
 ```
-{
-    "targetUrl": "https://jobs.sevendaysvt.com/tech-jobs-vermont/"
-}
+run_cli([
+    "register",
+    "robert1",
+    "testpass",
+    "robert1@example.com",
+    "login",
+    "robert1",
+    "testpass",
+    "Hi, I'm Robert. I'm having trouble with my password.",
+    "exit"
+])
+
+run_cli([
+    "login",
+    "robert1",
+    "testpass",
+    "Check the status of my ticket.",
+    "exit"
+])
 ```
 
-### Sample Verified Output
+## Next Steps
 
-```
-{
-  "source": "https://jobs.sevendaysvt.com/tech-jobs-vermont/",
-  "data": {
-    "postings": [
-      {
-        "company": "NEK Broadband",
-        "role": "Telecommunications Service Technician",
-        "tech_stack": ["broadband", "internet service"],
-        "evidence": "...ensure high-speed broadband internet service..."
-      }
-    ]
-  }
-}
-```
+- Add token/session-based authentication for API endpoints.
+- Implement more granular memory categories and retrieval strategies.
+- Add support for concurrent user sessions and distributed state stores (e.g., Redis).
+- Enhance logging with structured, queryable formats (e.g., JSON logs).
+- Integrate automated tests for edge cases and error handling.
+- Add metrics for latency, token usage, and cost tracking if using paid LLM APIs.
