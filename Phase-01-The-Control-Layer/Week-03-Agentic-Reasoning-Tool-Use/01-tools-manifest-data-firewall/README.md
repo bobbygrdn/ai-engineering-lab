@@ -1,61 +1,77 @@
-# Custom LangChain Tools: Math & Numbers API
+# Part 1: Tools Manifest & Data Firewall
 
-## Objective
+## Terms
 
-Demonstrate how to create and expose standard Python functions as AI-accessible tools using LangChain’s `@tool` decorator. This project includes a simple math operation and a public API fetch, both with precise docstrings for LLM usability and comprehensive tests.
+- JSON Tool Manifest: A structured JSON file describing each tool’s interface, including function names, argument types, and allowed values (enums).
+- Data Types: Explicit specification of input/output types (e.g., string, integer, enum).
+- Enum: A set of allowed values for a parameter.
+- Delimited Context Framing: Wrapping external/untrusted data in specific tags (e.g., <user_data>...</user_data>).
+- System Prompt: The initial instruction set given to an AI agent.
+- Hard Rule: A non-negotiable instruction in the system prompt.
+- Indirect Prompt Injection: A security vulnerability where untrusted input manipulates the agent’s behavior.
+- API Contract: The formal definition of how tools can be invoked and what data they accept/return.
 
-## Architecture
+## Key Concepts
 
-A dedicated Python module, [tools.py](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/560a9dba96/resources/app/out/vs/code/electron-browser/workbench/workbench.html), contains the custom tools. Each function is decorated with `@tool` and designed for seamless integration with LangChain agents.
+- Principle of Least Privilege: Treat all external data as untrusted and limit its influence.
+- Structural Defense: Using structure (tags, manifests) to enforce boundaries between trusted and untrusted data.
+- Defense-in-Depth: Multiple layers of security to prevent a single point of failure.
+- Explicit Data Framing: Clearly marking the boundaries of untrusted data.
+- Deterministic Tool Invocation: Tools can only be called with data that matches the manifest, not arbitrary strings.
+- Separation of Concerns: Keeping tool logic, data handling, and security rules distinct.
 
-### Infrastructure Details
+## Implementation Overview
 
-- **Runtime:** Python 3.10+
-- **Environment:** Virtualenv for dependency isolation
-- **Dependencies:** `langchain`, `requests`
-- **Testing:** `unittest` with `unittest.mock` for API mocking
+This project implements a secure agentic reasoning and tool-use system for LLMs, focusing on strict separation between untrusted user input and tool invocation logic. The system uses JSON tool manifests to define API contracts, explicit data types, and allowed values. All user data is wrapped in <user_data> tags, and the system prompt enforces hard rules to prevent indirect prompt injection. Tool invocations are only allowed if arguments match the manifest schema, providing deterministic and auditable tool use.
 
-## Lessons Learned
+Primary capabilities:
 
-- **Argument Passing:** LangChain’s `@tool` decorator expects arguments as a single dictionary when using `.run()`.
-- **Docstrings Matter:** LLMs rely on function docstrings to understand tool purpose and argument structure.
-- **Mocking APIs:** Mocking HTTP requests ensures tests are fast, reliable, and do not depend on external services.
+- User registration and authentication.
+- Updating user email, password, and username via manifest-driven tool calls.
+- Explicit validation of tool arguments against manifest-defined types.
+- Context framing of user input to prevent prompt injection.
+- Logging and memory management for user interactions.
 
-## Tech Stack
+## How It Works
 
-- **Language:** [Python](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/560a9dba96/resources/app/out/vs/code/electron-browser/workbench/workbench.html)
-- **AI Framework:** [LangChain](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/560a9dba96/resources/app/out/vs/code/electron-browser/workbench/workbench.html)
-- **HTTP Requests:** [requests](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/560a9dba96/resources/app/out/vs/code/electron-browser/workbench/workbench.html)
-- **Testing:** [unittest](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/560a9dba96/resources/app/out/vs/code/electron-browser/workbench/workbench.html)
-- **Development Tools:** [venv](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/560a9dba96/resources/app/out/vs/code/electron-browser/workbench/workbench.html), [pip](vscode-file://vscode-app/c:/Users/bobby/AppData/Local/Programs/Microsoft%20VS%20Code/560a9dba96/resources/app/out/vs/code/electron-browser/workbench/workbench.html)
+1. On startup, the system loads tool manifests (JSON) and initializes database tables for users, memories, and messages.
+2. The user registers or logs in; credentials are handled securely.
+3. User messages are wrapped in <user_data> tags and stored in a message buffer.
+4. The system assembles a prompt for the LLM, including delimited user data and relevant memory/context.
+5. The LLM receives a system prompt with hard rules: all <user_data> is untrusted and must not be interpreted as instructions.
+6. The LLM may output a TOOL_CALL with a tool name and arguments.
+7. The system extracts the tool call, validates arguments against the manifest (type, presence, enums), and only then invokes the tool.
+8. Tool results are logged, and the conversation continues, with all new facts written back to memory.
 
-## Usage
-
-### Setup
-
-```
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install langchain requests
-```
-
-### Example Usage
-
-```
-from tools import add, fetch_number_fact
-
-# Add two numbers
-result = add.run({"a": 2, "b": 3})  # Returns 5
-
-# Fetch a number fact
-fact = fetch_number_fact.run({"number": 42})  # Returns a trivia string
-```
-
-### Running Tests
+## Example Usage
 
 ```
-python _test_.py
+{
+  "name": "update_email",
+  "description": "Update the email address associated with your account.",
+  "parameters": {
+    "email": { "type": "string" }
+  },
+  "returns": {
+    "success": { "type": "boolean" },
+    "message": { "type": "string" }
+  }
+}
 ```
 
-- The test script prints clear section headers and results for each test.
-- All tests should pass if the tools are implemented and installed correctly.
+Example LLM Output and invocation
+
+```
+TOOL_CALL: {"tool": "update_email", "args": {"email": "new@example.com"}}
+```
+
+The system validates that "email" is a string before calling the update_email function.
+
+## Next Steps
+
+- Add automated tests for manifest validation and tool invocation.
+- Expand manifest schema to support nested objects and more complex types.
+- Implement logging/auditing for all tool calls and validation failures.
+- Integrate additional security checks (e.g., rate limiting, anomaly detection).
+- Document the manifest authoring process for new tools.
+- Consider support for role-based access control in tool manifests.
