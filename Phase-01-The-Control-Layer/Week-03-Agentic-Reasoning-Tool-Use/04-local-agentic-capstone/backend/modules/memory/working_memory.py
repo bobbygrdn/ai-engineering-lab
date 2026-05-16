@@ -1,0 +1,1 @@
+# This module will be responsible for maintaining the working memory of the agent using a MessageBuffer to store the conversation history and any relevant information that the agent needs to reference during its interactions.
