@@ -22,10 +22,10 @@ def heartbeat():
 @app.post("/api/classify")
 def classify(request: ClassifyRequest):
     try:
-        ticket = classify_support_ticket_with_retries(request.email_text)
+        ticket, metadata = classify_support_ticket_with_retries(request.email_text)
         if ticket is None:
             raise HTTPException(status_code=500, detail="Failed to classify the support ticket.")
-        return ticket.model_dump()
+        return {"ticket": ticket.model_dump(), "metadata": metadata.model_dump()}
     except ValueError as e:
         try:
             log_invalid_output(request.email_text, None, str(e))
