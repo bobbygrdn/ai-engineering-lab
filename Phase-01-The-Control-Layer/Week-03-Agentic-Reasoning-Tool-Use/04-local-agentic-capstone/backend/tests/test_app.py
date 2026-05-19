@@ -12,7 +12,7 @@ def test_heartbeat():
 
 def test_classify_endpoint():
     fake_ticket = SupportTicket(priority="Low", department="Billing", summary="Test summary.")
-    fake_metadata = Metadata(total_duration=1.23, usage=Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30))
+    fake_metadata = Metadata(total_duration=1.23, usage=Usage(prompt_tokens=10, completion_tokens=20, total_tokens=30, interaction_price=0.002))
     original = getattr(app_module, "classify_support_ticket_with_retries", None)
     app_module.classify_support_ticket_with_retries = lambda text: (fake_ticket, fake_metadata)
 
@@ -36,6 +36,7 @@ def test_classify_endpoint():
         assert "prompt_tokens" in metadata["usage"]
         assert "completion_tokens" in metadata["usage"]
         assert "total_tokens" in metadata["usage"]
+        assert "interaction_price" in metadata["usage"]
     finally:
         if original is not None:
             app_module.classify_support_ticket_with_retries = original
