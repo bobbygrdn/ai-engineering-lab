@@ -15,6 +15,7 @@ class Usage(BaseModel):
     prompt_tokens: int = Field(..., description="Number of tokens in the prompt")
     completion_tokens: int = Field(..., description="Number of tokens in the completion")
     total_tokens: int = Field(..., description="Total number of tokens used")
+    interaction_price: float = Field(..., description="Calculated price for the interaction based on token usage")
 
 class SupportTicket(BaseModel):
     priority: Priority = Field(..., description="The priority level of the support ticket")

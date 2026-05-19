@@ -51,19 +51,21 @@ def _usage_from_event(event: Any) -> dict:
             usage = getattr(response, "usage", None)
 
     if usage is None:
-        return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+        return {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "interaction_price": 0.0}
 
     if isinstance(usage, dict):
         return {
             "prompt_tokens": usage.get("input_tokens", 0),
             "completion_tokens": usage.get("output_tokens", 0),
             "total_tokens": usage.get("total_tokens", 0),
+            "interaction_price": calculate_price(usage.get("input_tokens", 0), usage.get("output_tokens", 0)),
         }
 
     return {
         "prompt_tokens": getattr(usage, "input_tokens", 0) or 0,
         "completion_tokens": getattr(usage, "output_tokens", 0) or 0,
         "total_tokens": getattr(usage, "total_tokens", 0) or 0,
+        "interaction_price": calculate_price(getattr(usage, "input_tokens", 0) or 0, getattr(usage, "output_tokens", 0) or 0),
     }
 
 
@@ -75,7 +77,7 @@ def classify_support_ticket_stream(email_text: str) -> Tuple[Optional[SupportTic
     if not email_text.strip():
         raise ValueError("Email text cannot be empty.")
 
-    usage_dict = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
+    usage_dict = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "interaction_price": 0.0}
     start = time.time()
     content_parts: list[str] = []
     ttft: Optional[float] = None
@@ -158,7 +160,7 @@ def classify_support_ticket_stream(email_text: str) -> Tuple[Optional[SupportTic
 def classify_support_ticket_with_retries(email_text: str, max_retries: int = 3) -> tuple[Optional[SupportTicket], Metadata]:
     last_metadata = Metadata(
         total_duration=0.0,
-        usage=Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0),
+        usage=Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0, interaction_price=0.0),
     )
     for attempt in range(max_retries):
         try:
