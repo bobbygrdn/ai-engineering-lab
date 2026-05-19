@@ -1,11 +1,15 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from modules.logic.agentic_logic import classify_support_ticket_with_retries
-from modules.schemas.type_safety import ClassifyRequest
+from modules.schemas.type_safety import ClassifyRequest, SupportAIService
 from modules.utils.helpers import log_invalid_output
 from pydantic import ValidationError
+import json
 
 app = FastAPI()
+
+ai_service = SupportAIService()
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,3 +48,19 @@ def classify(request: ClassifyRequest):
         except Exception as log_error:
             print(f"Logging error: {log_error}")
         raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
+
+@app.post("/api/handle")
+def handle(request: ClassifyRequest):
+    def event_generator():
+        try:
+            for event in ai_service.handle_ticket(request.email_text):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            try:
+                log_invalid_output(request.email_text, None, f"Streaming error: {str(e)}")
+            except Exception as log_error:
+                print(f"Logging error: {log_error}")
+            # Yield an error event instead of crashing the stream
+            yield f"data: {json.dumps({'type': 'error', 'data': {'message': str(e)}})}\n\n"
+    
+    return StreamingResponse(event_generator(), media_type="text/event-stream")

@@ -1,14 +1,14 @@
-import os
+from modules.utils.helpers import log_invalid_output, extract_json, calculate_price, print_ticket
+from modules.schemas.type_safety import SupportTicket, Metadata, Usage
+from modules.utils.logging import logger
+from typing import Optional, Tuple, Any
+from pydantic import ValidationError
+from json import JSONDecodeError
+from dotenv import load_dotenv
 import openai
 import time
 import json
-from json import JSONDecodeError
-from typing import Optional, Tuple, Any
-from pydantic import ValidationError
-from modules.schemas.type_safety import SupportTicket, Metadata, Usage
-from dotenv import load_dotenv
-from modules.utils.logging import logger
-from modules.utils.helpers import log_invalid_output, extract_json, calculate_price, print_ticket
+import os
 
 load_dotenv()
 
@@ -19,7 +19,6 @@ def _event_type(event: Any) -> str:
     if isinstance(event, dict):
         return event.get("type", "")
     return getattr(event, "type", "") or ""
-
 
 def _delta_text_from_event(event: Any) -> str:
     if isinstance(event, dict):
@@ -34,7 +33,6 @@ def _delta_text_from_event(event: Any) -> str:
     if isinstance(delta, dict):
         return delta.get("content", "") or delta.get("text", "") or ""
     return getattr(delta, "content", "") or getattr(delta, "text", "") or ""
-
 
 def _usage_from_event(event: Any) -> dict:
     if isinstance(event, dict):
@@ -67,7 +65,6 @@ def _usage_from_event(event: Any) -> dict:
         "total_tokens": getattr(usage, "total_tokens", 0) or 0,
         "interaction_price": calculate_price(getattr(usage, "input_tokens", 0) or 0, getattr(usage, "output_tokens", 0) or 0),
     }
-
 
 def classify_support_ticket_stream(email_text: str) -> Tuple[Optional[SupportTicket], Metadata]:
     """
@@ -155,7 +152,6 @@ def classify_support_ticket_stream(email_text: str) -> Tuple[Optional[SupportTic
         metadata = Metadata(total_duration=total_duration, usage=Usage(**usage_dict))
         log_invalid_output(email_text, None, f"Exception during streaming: {str(e)}")
         return None, metadata
-
 
 def classify_support_ticket_with_retries(email_text: str, max_retries: int = 3) -> tuple[Optional[SupportTicket], Metadata]:
     last_metadata = Metadata(
