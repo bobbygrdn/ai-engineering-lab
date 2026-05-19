@@ -1,29 +1,56 @@
 import './App.css'
-import { useEffect, useState} from 'react';
-import { backendHeartbeat } from './api';
+import { useState } from 'react';
+import { streamHandleEmail } from './api';
+import InputForm from './components/inputForm/InputForm';
+import OutputDisplay from './components/outputDisplay/OutputDisplay';
 
 function App() {
-  const [heartbeat, setHeartbeat] = useState(null);
+  const [streamingText, setStreamingText] = useState('');
+  const [completedResponse, setCompletedResponse] = useState(null);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchHeartbeat = async () => {
-      try {
-        const data = await backendHeartbeat();
-        setHeartbeat(data);
-      } catch (error) {
-        console.error('Error fetching backend heartbeat:', error);
+  const handleSubmit = async (emailText: string) => {
+    setStreamingText('');
+    setCompletedResponse(null);
+    setError('');
+    setIsLoading(true);
+
+    await streamHandleEmail(
+      emailText,
+      (delta) => {
+        setStreamingText((prev) => prev + delta);
+      },
+      (response) => {
+        setCompletedResponse(response);
+        setIsLoading(false);
+      },
+      (errorMsg) => {
+        setError(errorMsg);
+        setIsLoading(false);
       }
-    };
-
-    fetchHeartbeat();
-  }, []);
+    );
+  };
 
   return (
-    <>
-      <h1>Welcome to the frontend!</h1>
-      {heartbeat && <p>Backend heartbeat: {JSON.stringify(heartbeat)}</p>}
-    </>
+    <div className="app-container">
+      <div className="app-header">
+        <h1>🤖 Support Ticket MVP</h1>
+        <p>Real-time AI-powered support ticket handling with streaming responses</p>
+      </div>
+      
+      <div className="app-content">
+        <InputForm onSubmit={handleSubmit} isLoading={isLoading} />
+        <OutputDisplay 
+          streamingText={streamingText}
+          completedResponse={completedResponse}
+          error={error}
+          isStreaming={isLoading}
+        />
+      </div>
+    </div>
   )
 }
 
 export default App
+
