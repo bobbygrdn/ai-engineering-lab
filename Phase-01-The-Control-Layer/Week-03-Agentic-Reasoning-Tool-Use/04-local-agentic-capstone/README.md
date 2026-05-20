@@ -2,6 +2,17 @@
 
 ## Daily Progress
 
+- **Date:** 2026-05-20
+  - **Summary:** Added ground-truth benchmarking, integrated labeled dataset examples, enhanced the benchmark runner with batching, per-email timeouts, and JSONL trace/invalid-output logging; implemented ground-truth comparison metrics and updated summaries; finalized SSE streaming and frontend integration; updated tests and verified benchmark unit tests pass.
+  - **Completed:**
+    - **Benchmark — Ground-truth:** Extended `modules.utils.benchmark` to accept labeled examples, compare model outputs against labels (priority, department, summary), compute per-field accuracies and exact-match rates, and include these in `benchmark.md` and `benchmark_trace.jsonl`.
+    - **Dataset:** Added 10 labeled examples to `backend/benchmark_emails.json` while preserving the larger unlabeled dataset for broader coverage.
+    - **Runner — Robustness:** Implemented per-email `ThreadPoolExecutor` timeouts, fixed-size batching with `batch_pause_seconds` to avoid cascading rate-limit failures, and retained retry semantics.
+    - **Logging:** Centralized invalid-output logging to `invalid_outputs.jsonl` and extended trace logs (`benchmark_trace.jsonl`) to include start/result events and final ground-truth aggregates.
+    - **Compatibility:** Kept `load_emails()` backward-compatible: returns `list[str]` for unlabeled datasets and `list[dict]` when labels are present.
+    - **Tests:** Updated and ran benchmark unit tests — all benchmark tests pass locally.
+    - **CLI:** Simplified CLI defaults so `python -m modules.utils.benchmark` runs with sensible defaults and produces `benchmark.md` + `benchmark_trace.jsonl`.
+
 - **Date:** 2026-05-19
   - **Summary:** Converted internal model streaming to client-facing SSE (Server-Sent Events) streaming, built complete frontend UI with real-time response display and metadata visualization, and updated all tests to support generator-based architecture. MVP now fully functional end-to-end with streaming responses visible to users.
   - **Completed:**
