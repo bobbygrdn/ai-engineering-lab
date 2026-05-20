@@ -47,7 +47,7 @@ def test_classify_endpoint():
 def test_classify_endpoint_empty_email():
     response = client.post("/api/classify", json={"email_text": ""})
     assert response.status_code == 500
-    assert response.json() == {"detail": "An error occurred: 500: Failed to classify the support ticket."}
+    assert response.json() == {"detail": "Email text cannot be empty."}
 
 def test_classify_endpoint_with_invalid_payload():
     response = client.post("/api/classify", json={"invalid_field": "test"})

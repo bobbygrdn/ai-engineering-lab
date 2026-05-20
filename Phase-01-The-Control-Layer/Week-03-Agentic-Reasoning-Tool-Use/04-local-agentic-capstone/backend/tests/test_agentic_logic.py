@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+import json
 import pytest
 import modules.logic.agentic_logic as agentic_logic
 from modules.logic.agentic_logic import classify_support_ticket_stream, classify_support_ticket_with_retries
@@ -106,6 +107,8 @@ def test_log_invalid_output(tmp_path, monkeypatch):
 
     log_invalid_output(email_text, output, error)
 
-    contents = (tmp_path / "invalid_outputs.log").read_text()
-    assert email_text in contents
-    assert error in contents
+    contents = (tmp_path / "invalid_outputs.jsonl").read_text().strip().splitlines()
+    assert len(contents) == 1
+    payload = json.loads(contents[0])
+    assert payload["email_text"] == email_text
+    assert payload["error"] == error
