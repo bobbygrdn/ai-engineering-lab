@@ -1,6 +1,7 @@
 from modules.utils.helpers import log_invalid_output, extract_json, calculate_price, print_ticket
 from modules.schemas.type_safety import SupportTicket, Metadata, Usage
 from modules.utils.logging import logger
+from modules.utils.exceptions import EmptyPromptError, RateLimitExceededError, RefusalError
 from typing import Optional, Tuple, Any
 from pydantic import ValidationError
 from json import JSONDecodeError
@@ -72,7 +73,7 @@ def classify_support_ticket_stream(email_text: str) -> Tuple[Optional[SupportTic
     and always return Metadata (with defaults when usage isn't available).
     """
     if not email_text.strip():
-        raise ValueError("Email text cannot be empty.")
+        raise EmptyPromptError("Email text cannot be empty.")
 
     usage_dict = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "interaction_price": 0.0}
     start = time.time()
@@ -85,6 +86,8 @@ def classify_support_ticket_stream(email_text: str) -> Tuple[Optional[SupportTic
         "\"department\" (Billing|Technical Support|General Inquiry), "
         "and \"summary\" (a brief 1-3 sentence summary)."
     )
+
+    refusal_detected = False
 
     try:
 
@@ -103,13 +106,17 @@ def classify_support_ticket_stream(email_text: str) -> Tuple[Optional[SupportTic
             if i == 0:
                 ttft = time.time() - start
 
+            if event_type in {"response.refusal.delta", "response.refusal.done"}:
+                refusal_detected = True
+                logger.warning(f"Refusal event received for email: {email_text} - event: {event}")
+                break
+
             if event_type == "response.output_text.delta":
                 content_parts.append(_delta_text_from_event(event))
             elif event_type == "response.output_text.done":
                 continue
             elif event_type == "response.completed":
                 usage_dict = _usage_from_event(event)
-                logger.error(f"Streaming error event for email: {email_text} - event: {event}")
                 break
 
         TTFT_THRESHOLD = 3.0
@@ -123,6 +130,10 @@ def classify_support_ticket_stream(email_text: str) -> Tuple[Optional[SupportTic
         metadata = Metadata(total_duration=total_duration, usage=Usage(**usage_dict))
 
         raw_text = "".join(content_parts).strip()
+        if refusal_detected or any(phrase in raw_text.lower() for phrase in ("i can't assist", "i cannot assist", "i'm sorry", "i cannot comply")):
+            log_invalid_output(email_text, raw_text or None, "Model refusal")
+            raise RefusalError("Model refused to answer.")
+
         if not raw_text:
             logger.error("No content received from stream.")
             log_invalid_output(email_text, raw_text or None, "Empty stream content")
@@ -146,6 +157,10 @@ def classify_support_ticket_stream(email_text: str) -> Tuple[Optional[SupportTic
 
         ticket = SupportTicket.model_validate(payload)
         return ticket, metadata
+    except openai.RateLimitError as e:
+        logger.error(f"Rate limit during classification stream: {e}")
+        log_invalid_output(email_text, None, f"Rate limit: {str(e)}")
+        raise RateLimitExceededError(str(e)) from e
     except Exception as e:
         logger.error(f"Error during classification stream: {e}")
         total_duration = time.time() - start
@@ -153,11 +168,12 @@ def classify_support_ticket_stream(email_text: str) -> Tuple[Optional[SupportTic
         log_invalid_output(email_text, None, f"Exception during streaming: {str(e)}")
         return None, metadata
 
-def classify_support_ticket_with_retries(email_text: str, max_retries: int = 3) -> tuple[Optional[SupportTicket], Metadata]:
+def classify_support_ticket_with_retries(email_text: str, max_retries: int = 3, raise_on_failure: bool = False) -> tuple[Optional[SupportTicket], Metadata]:
     last_metadata = Metadata(
         total_duration=0.0,
         usage=Usage(prompt_tokens=0, completion_tokens=0, total_tokens=0, interaction_price=0.0),
     )
+    last_error: Exception | None = None
     for attempt in range(max_retries):
         try:
             response, metadata = classify_support_ticket_stream(email_text)
@@ -170,11 +186,25 @@ def classify_support_ticket_with_retries(email_text: str, max_retries: int = 3) 
                 log_invalid_output(email_text, response.model_dump(), "Summary indicates uncertainty")
                 return None, metadata
             return response, metadata
+        except EmptyPromptError:
+            raise
+        except RefusalError as e:
+            last_error = e
+            logger.warning(f"Refusal for email: {email_text}. Error: {e}")
+            log_invalid_output(email_text, None, str(e))
+        except RateLimitExceededError as e:
+            last_error = e
+            logger.warning(f"Rate limit for email: {email_text}. Error: {e}")
+            log_invalid_output(email_text, None, str(e))
         except ValidationError as e:
+            last_error = e
             logger.error(f"Validation error for email: {email_text}. Error: {e}")
             log_invalid_output(email_text, None, str(e))
         except Exception as e:
+            last_error = e
             logger.error(f"Unexpected error during classification: {e}")
             log_invalid_output(email_text, None, f"Unexpected error: {str(e)}")
+    if raise_on_failure and last_error is not None:
+        raise last_error
     log_invalid_output(email_text, None, "Failed classification after retries")
     return None, last_metadata

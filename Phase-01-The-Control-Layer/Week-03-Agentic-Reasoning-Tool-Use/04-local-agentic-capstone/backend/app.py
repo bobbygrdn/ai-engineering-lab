@@ -60,7 +60,7 @@ def handle(request: ClassifyRequest):
                 log_invalid_output(request.email_text, None, f"Streaming error: {str(e)}")
             except Exception as log_error:
                 print(f"Logging error: {log_error}")
-            # Yield an error event instead of crashing the stream
+
             yield f"data: {json.dumps({'type': 'error', 'data': {'message': str(e)}})}\n\n"
     
     return StreamingResponse(event_generator(), media_type="text/event-stream")

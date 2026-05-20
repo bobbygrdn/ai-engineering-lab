@@ -1,15 +1,18 @@
 from datetime import datetime
 from modules.utils.logging import logger
+import json
 import re
 from typing import Optional, Any
 
 def log_invalid_output(email_text, output, error):
-    with open('invalid_outputs.log', 'a') as log_file:
-        log_file.write(f"Timestamp: {datetime.now()}\n")
-        log_file.write(f"Email Text: {email_text}\n")
-        log_file.write(f"Output: {output}\n")
-        log_file.write(f"Error: {error}\n")
-        log_file.write("-" * 80 + "\n")
+    record = {
+        "timestamp": datetime.now().isoformat(),
+        "email_text": email_text,
+        "output": output,
+        "error": error,
+    }
+    with open('invalid_outputs.jsonl', 'a', encoding='utf-8') as log_file:
+        log_file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 def extract_json(text):
     match = re.search(r'\{.*\}', text, re.DOTALL)
