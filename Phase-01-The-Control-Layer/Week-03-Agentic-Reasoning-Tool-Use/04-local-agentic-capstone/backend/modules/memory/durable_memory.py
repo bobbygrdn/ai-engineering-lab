@@ -5,6 +5,7 @@ import uuid
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
+from modules.utils.interactions import record_event
 
 
 DEFAULT_MEMORY_PATH = os.path.join("logs", "memories.json")
@@ -318,6 +319,11 @@ def parse_and_apply_response(store: DurableMemoryStore, text: str) -> Dict[str, 
     # naive extraction: find first '[' or '{' and load JSON from there
     import json
 
+    try:
+        record_event("writeback_parse_started", {"snippet": text[:200]})
+    except Exception:
+        pass
+
     idx = None
     for ch in ("[", "{"):
         p = text.find(ch)
@@ -325,10 +331,18 @@ def parse_and_apply_response(store: DurableMemoryStore, text: str) -> Dict[str, 
             idx = p
             break
     if idx is None:
+        try:
+            record_event("writeback_parse_failed", {"reason": "no_json"})
+        except Exception:
+            pass
         raise ValueError("No JSON found in response")
     try:
         payload = json.loads(text[idx:])
     except Exception as e:
+        try:
+            record_event("writeback_parse_failed", {"error": str(e)[:500]})
+        except Exception:
+            pass
         raise ValueError(f"Failed to parse JSON: {e}")
 
     if isinstance(payload, dict) and "patches" in payload:
@@ -339,5 +353,9 @@ def parse_and_apply_response(store: DurableMemoryStore, text: str) -> Dict[str, 
         raise ValueError("Unsupported patch format")
 
     results = store.apply_patches(patches)
+    try:
+        record_event("writeback_applied", {"patch_count": len(patches), "results": results})
+    except Exception:
+        pass
     return {"applied": results}
 

@@ -7,6 +7,7 @@ from typing import Any, Iterable, Literal
 from pydantic import BaseModel, Field
 from modules.utils.tokenizer import count_tokens
 from modules.memory.summarizer import summarize_messages
+from modules.utils.interactions import record_event
 
 
 DEFAULT_TOKEN_BUDGET = 4000
@@ -67,6 +68,10 @@ class ConversationBuilder:
             tc = max(0, int(token_count))
         stored = StoredMessage(message=message, token_count=tc)
         self._messages.append(stored)
+        try:
+            record_event("message_appended", {"role": role, "summary": content[:200], "tokens": tc})
+        except Exception:
+            pass
         # remember last appended message to avoid immediate eviction
         self._last_appended = stored
         self._total_tokens += tc
@@ -119,37 +124,79 @@ class ConversationBuilder:
     def _trim_to_budget(self) -> None:
         # If over budget, attempt summarization once to compact older messages,
         # otherwise remove the oldest non-system messages.
+        try:
+            if self._total_tokens > self.token_budget and len(self._messages) > 4:
+                record_event("trimming_started", {"total_tokens": self._total_tokens, "budget": self.token_budget})
+        except Exception:
+            pass
         if self._total_tokens > self.token_budget and len(self._messages) > 4:
-            # summarize earliest half of messages to preserve content
-            non_system = [m for m in self._messages if m.message.role != "system"]
-            if len(non_system) > 2:
-                # take earliest half
-                cutoff = max(1, len(non_system) // 2)
-                to_summarize = non_system[:cutoff]
-                summary_text, summary_tokens = summarize_messages(to_summarize)
-                # remove those messages
-                remaining = [m for m in self._messages if m not in to_summarize]
-                self._messages = remaining
-                # append summary as assistant message
-                summary_msg = MessageObject(role="assistant", content=summary_text)
-                self._messages.insert(0, StoredMessage(message=summary_msg, token_count=summary_tokens))
-                # recompute total tokens
-                self._total_tokens = sum(s.token_count for s in self._messages)
-                # if still over budget, fall through to deletion loop
+            # Try recursive compression (iterative summarization of older context) to reduce tokens.
+            try:
+                from modules.memory.recursive_compressor import recursive_compress
+
+                new_msgs, new_total = recursive_compress(self._messages, self.token_budget)
+                # Only accept the compressed result if it actually reduced tokens or met the budget
+                if new_total < self._total_tokens:
+                    self._messages = new_msgs
+                    self._total_tokens = new_total
+                    try:
+                        record_event("trimming_compressed", {"old_total": total_tokens, "new_total": new_total})
+                    except Exception:
+                        pass
+            except Exception:
+                # fallback to a single-step summarization if the recursive compressor fails
+                non_system = [m for m in self._messages if m.message.role != "system"]
+                if len(non_system) > 2:
+                    # take earliest half
+                    cutoff = max(1, len(non_system) // 2)
+                    to_summarize = non_system[:cutoff]
+                    summary_text, summary_tokens = summarize_messages(to_summarize)
+                    # remove those messages
+                    remaining = [m for m in self._messages if m not in to_summarize]
+                    self._messages = remaining
+                    # append summary as assistant message
+                    summary_msg = MessageObject(role="assistant", content=summary_text)
+                    self._messages.insert(0, StoredMessage(message=summary_msg, token_count=summary_tokens))
+                    # recompute total tokens
+                    self._total_tokens = sum(s.token_count for s in self._messages)
+                    try:
+                        record_event("trimming_fallback_summary", {"replaced_tokens": removed_tokens, "summary_tokens": summary_tokens})
+                    except Exception:
+                        pass
 
         while self._total_tokens > self.token_budget:
-            removable_index = next((index for index, stored in enumerate(self._messages) if stored.message.role != "system" and getattr(self, '_last_appended', None) is not stored), None)
+            # avoid removing system messages, the most recently appended message, or freshly inserted summaries
+            removable_index = next(
+                (
+                    index
+                    for index, stored in enumerate(self._messages)
+                    if stored.message.role != "system"
+                    and getattr(self, "_last_appended", None) is not stored
+                    and not getattr(stored, "_is_summary", False)
+                    and not str(stored.message.content).startswith("Summary of earlier conversation:")
+                ),
+                None,
+            )
             if removable_index is None:
-                # nothing removable without evicting the most recent appended message
+                # nothing removable without evicting the most recent appended message or summaries
                 break
             removed = self._messages.pop(removable_index)
             self._total_tokens -= removed.token_count
+            try:
+                record_event("message_evicted", {"role": removed.message.role, "summary": str(removed.message.content)[:200], "tokens": removed.token_count})
+            except Exception:
+                pass
         # clear last_appended marker once trimming is complete
         if hasattr(self, "_last_appended"):
             try:
                 del self._last_appended
             except Exception:
                 pass
+        try:
+            if self._total_tokens <= self.token_budget:
+                record_event("trimming_completed", {"total_tokens": self._total_tokens, "budget": self.token_budget})
+        except Exception:
+            pass
 
     def _load_state(self) -> None:
         if not self.state_path.exists():

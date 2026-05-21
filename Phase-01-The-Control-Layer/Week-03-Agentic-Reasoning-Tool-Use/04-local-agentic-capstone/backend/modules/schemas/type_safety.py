@@ -47,6 +47,7 @@ class ModelInterface:
 
 
 from modules.utils.tokenizer import count_tokens
+from modules.utils.interactions import record_event
 
 
 def _estimate_token_count(text: str) -> int:
@@ -378,6 +379,12 @@ class SupportAIService:
     def handle_ticket(self, email_text: str):
         intent = classify_intent(email_text)
         prompt_text = self._build_prompt(email_text, intent)
+        # best-effort: emit a prompt_sent event (trim large prompts)
+        try:
+            record_event("prompt_sent", {"intent": intent or "unknown", "summary": prompt_text[:500], "prompt_tokens_est": _estimate_token_count(prompt_text)})
+        except Exception:
+            pass
+
         assistant_response_text = ""
         if intent == "simple":
             stream = self.sl_model.infer_response(prompt_text)
@@ -386,9 +393,22 @@ class SupportAIService:
 
         try:
             for event in stream:
-                if isinstance(event, dict) and event.get("type") == "completed":
-                    data = event.get("data", {}) or {}
-                    assistant_response_text = str(data.get("response_text", ""))
+                # capture streaming events: delta, done, completed
+                try:
+                    if isinstance(event, dict):
+                        t = event.get("type")
+                        if t == "delta":
+                            d = event.get("data", {}) or {}
+                            txt = d.get("text") if isinstance(d, dict) else None
+                            record_event("delta", {"text": (txt or "")[:1000]})
+                        elif t == "done":
+                            record_event("done", {})
+                        elif t == "completed":
+                            d = event.get("data", {}) or {}
+                            record_event("completed", {"response_text": (d.get("response_text") or "")[:1000], "intent": d.get("intent")})
+                            assistant_response_text = str(d.get("response_text", ""))
+                except Exception:
+                    pass
                 yield event
         finally:
             if assistant_response_text:
@@ -397,9 +417,21 @@ class SupportAIService:
                     assistant_response_text,
                     _estimate_token_count(assistant_response_text),
                 )
+                try:
+                    record_event("assistant_appended", {"text": assistant_response_text[:1000]})
+                except Exception:
+                    pass
                 # attempt to parse structured write-back patches from assistant and apply
                 try:
                     res = self.durable_mgr.apply_llm_writeback(assistant_response_text)
                     logger.info(f"Applied durable memory patches: {res}")
+                    try:
+                        record_event("writeback_applied", {"result": res})
+                    except Exception:
+                        pass
                 except Exception as e:
                     logger.debug(f"No structured write-back applied or parse failed: {e}")
+                    try:
+                        record_event("writeback_failed", {"error": str(e)[:1000]})
+                    except Exception:
+                        pass

@@ -2,7 +2,7 @@ import json
 import os
 from datetime import datetime, timezone
 
-METRICS_PATH = os.path.join("backend", "logs", "metrics.jsonl")
+METRICS_PATH = os.path.join("logs", "metrics.jsonl")
 
 
 def _now_iso():
