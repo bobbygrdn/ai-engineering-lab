@@ -1,6 +1,9 @@
 from pydantic import BaseModel, Field
 from modules.utils.logging import logger
 from modules.memory import ConversationBuilder
+from modules.memory.integration import DurableMemoryManager
+from modules.memory import DurableMemoryStore
+from modules.memory.durable_memory import WRITEBACK_INSTRUCTION
 from enum import Enum
 from pathlib import Path
 import time
@@ -43,8 +46,11 @@ class ModelInterface:
         raise NotImplementedError
 
 
+from modules.utils.tokenizer import count_tokens
+
+
 def _estimate_token_count(text: str) -> int:
-    return max(1, len(text.split()))
+    return max(1, count_tokens(text, model="gpt-4o-mini"))
 
 class SLModel(ModelInterface):
 
@@ -62,10 +68,11 @@ class SLModel(ModelInterface):
             content_parts: list[str] = []
             usage_dict = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0, "interaction_price": 0.0}
 
+            sys_prompt = "You are a helpful support assistant. Reply in one short polite paragraph.\n" + WRITEBACK_INSTRUCTION
             stream = openai_client.responses.create(
                 model="gpt-4o-mini",
                 input=[
-                    {"role": "system", "content": "You are a helpful support assistant. Reply in one short polite paragraph."},
+                    {"role": "system", "content": sys_prompt},
                     {"role": "user", "content": email_text},
                 ],
                 stream=True,
@@ -108,6 +115,20 @@ class SLModel(ModelInterface):
             )
         )
 
+        # record metrics (prompt/completion tokens and TTFT)
+        try:
+            from modules.utils.metrics import log_interaction
+            log_interaction({
+                "model": "gpt-4o-mini",
+                "intent": "simple",
+                "prompt_tokens": int(input_tokens),
+                "completion_tokens": int(output_tokens),
+                "total_tokens": int(input_tokens or 0) + int(output_tokens or 0),
+                "duration": metadata.total_duration,
+            })
+        except Exception:
+            pass
+
         response = SupportTicketResponse(
             intent="simple",
             response_text=response_text,
@@ -146,10 +167,11 @@ class FrontierModel(ModelInterface):
             content_parts: list[str] = []
             gen_usage = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
+            sys_prompt = "You are a helpful and concise support agent.\n" + WRITEBACK_INSTRUCTION
             stream = openai_client.responses.create(
                 model="gpt-4o-mini",
                 input=[
-                    {"role": "system", "content": "You are a helpful and concise support agent."},
+                    {"role": "system", "content": sys_prompt},
                     {"role": "user", "content": gen_user_text},
                 ],
                 stream=True,
@@ -202,6 +224,19 @@ class FrontierModel(ModelInterface):
             metadata=metadata
         )
 
+        try:
+            from modules.utils.metrics import log_interaction
+            log_interaction({
+                "model": "gpt-4o-mini",
+                "intent": "complex",
+                "prompt_tokens": int(total_prompt),
+                "completion_tokens": int(total_completion),
+                "total_tokens": int(total_tokens),
+                "duration": metadata.total_duration,
+            })
+        except Exception:
+            pass
+
         yield {"type": "completed", "data": response.model_dump()}
 
 def classify_intent(email_text: str) -> str:
@@ -221,23 +256,128 @@ class SupportAIService:
         self.frontier_model = FrontierModel()
         self.conversation = ConversationBuilder(state_path=state_path, token_budget=token_budget)
 
+        # durable memory manager for typed memories
+        self.durable_mgr = DurableMemoryManager(store=DurableMemoryStore(token_budget=token_budget))
+
         if not self.conversation.has_role("system"):
+            sys_text = (
+                "You are a helpful support agent. Use the prior conversation when responding.\n"
+                + WRITEBACK_INSTRUCTION
+            )
             self.conversation.append_message(
                 "system",
-                "You are a helpful support agent. Use the prior conversation when responding.",
-                _estimate_token_count("You are a helpful support agent. Use the prior conversation when responding."),
+                sys_text,
+                _estimate_token_count(sys_text),
             )
 
-    def _build_prompt(self, email_text: str) -> str:
+    def _build_prompt(self, email_text: str, intent: str | None = None) -> str:
+        # Read persisted conversation first to deterministically capture the latest assistant
+        # message before a new user append may trigger trimming and eviction.
+        persisted_last_assistant = None
+        try:
+            sp = getattr(self.conversation, "state_path", None)
+            if sp and sp.exists():
+                import json
+                raw = json.loads(sp.read_text(encoding="utf-8"))
+                for item in reversed(raw.get("messages", [])):
+                    if item.get("role") == "assistant":
+                        persisted_last_assistant = item.get("content")
+                        break
+        except Exception:
+            persisted_last_assistant = None
+
+        # append the current user message (this may trim older messages)
         self.conversation.append_message("user", email_text, _estimate_token_count(email_text))
-        transcript = self.conversation.render_transcript().strip()
-        if not transcript:
-            return email_text
-        return transcript
+        # choose compact transcript for simple intents to reduce tokens and latency
+        if intent == "simple":
+            transcript = self.conversation.render_transcript_compact(max_tokens=120, max_messages=6).strip()
+            types_to_hydrate = ["preferences"]
+        else:
+            transcript = self.conversation.render_transcript().strip()
+            types_to_hydrate = ["preferences", "past_issues", "system_context"]
+
+        # Hydrate typed memories and assemble attention-optimized sections
+        try:
+            # use cache-enabled hydrate to avoid repeated disk loads
+            zones = self.durable_mgr.hydrate_cached(types=types_to_hydrate, max_tokens=self.conversation.token_budget)
+
+            def _short_content(m):
+                s = str(m.content)
+                words = s.split()
+                if len(words) > 30:
+                    return "..." + " ".join(words[-20:])
+                return s
+
+            def _render_list(title: str, items: list) -> str:
+                if not items:
+                    return ""
+                lines = [f"### {title}"]
+                for m in items:
+                    lines.append(f"- [{m.type}] {_short_content(m)}")
+                return "\n".join(lines)
+
+            top_section = _render_list("Memory Peak (Top)", zones.get("top", []))
+            middle_section = _render_list("Low-Attention Zone (Middle)", zones.get("middle", []))
+            bottom_section = _render_list("Memory Peak (Bottom)", zones.get("bottom", []))
+
+            parts = []
+            if top_section:
+                parts.append(top_section)
+            if transcript:
+                parts.append(transcript)
+            else:
+                parts.append(email_text)
+            if middle_section:
+                parts.append(middle_section)
+            if bottom_section:
+                parts.append(bottom_section)
+
+            assembled = "\n\n".join(parts)
+            # rebuild final assembled prompt explicitly to ensure system, last assistant, transcript and user lines
+            system_msgs = [m for m in self.conversation.messages if m.role == "system"]
+            system_line = f"System: {system_msgs[0].content}" if system_msgs else ""
+
+            # Use the persisted last assistant we captured before appending the new user message
+            last_assistant = persisted_last_assistant
+
+            # If persisted snapshot didn't have an assistant, fall back to in-memory and state
+            if last_assistant is None:
+                # try the public messages list first
+                for m in reversed(self.conversation.messages):
+                    if m.role == "assistant":
+                        last_assistant = m.content
+                        break
+                # fallback: try stored state messages for robustness
+                if last_assistant is None:
+                    try:
+                        for stored in reversed(self.conversation.state.messages):
+                            if getattr(stored.message, "role", "") == "assistant":
+                                last_assistant = getattr(stored.message, "content", None)
+                                break
+                    except Exception:
+                        pass
+
+            user_line = f"User: {email_text}"
+
+            final_parts = []
+            if system_line:
+                final_parts.append(system_line)
+            if last_assistant:
+                final_parts.append(f"Assistant: {last_assistant}")
+            if assembled:
+                final_parts.append(assembled)
+            final_parts.append(user_line)
+
+            return "\n\n".join(final_parts)
+        except Exception:
+            # fallback to transcript only
+            if not transcript:
+                return email_text
+            return transcript
 
     def handle_ticket(self, email_text: str):
         intent = classify_intent(email_text)
-        prompt_text = self._build_prompt(email_text)
+        prompt_text = self._build_prompt(email_text, intent)
         assistant_response_text = ""
         if intent == "simple":
             stream = self.sl_model.infer_response(prompt_text)
@@ -257,3 +397,9 @@ class SupportAIService:
                     assistant_response_text,
                     _estimate_token_count(assistant_response_text),
                 )
+                # attempt to parse structured write-back patches from assistant and apply
+                try:
+                    res = self.durable_mgr.apply_llm_writeback(assistant_response_text)
+                    logger.info(f"Applied durable memory patches: {res}")
+                except Exception as e:
+                    logger.debug(f"No structured write-back applied or parse failed: {e}")
