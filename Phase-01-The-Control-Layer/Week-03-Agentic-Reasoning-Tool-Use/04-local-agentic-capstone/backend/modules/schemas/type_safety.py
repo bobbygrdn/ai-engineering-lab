@@ -1,6 +1,8 @@
 from pydantic import BaseModel, Field
 from modules.utils.logging import logger
+from modules.memory import ConversationBuilder
 from enum import Enum
+from pathlib import Path
 import time
 
 class Priority(str, Enum):
@@ -39,6 +41,10 @@ class SupportTicketResponse(BaseModel):
 class ModelInterface:
     def infer_response(self, email_text: str) -> SupportTicketResponse:
         raise NotImplementedError
+
+
+def _estimate_token_count(text: str) -> int:
+    return max(1, len(text.split()))
 
 class SLModel(ModelInterface):
 
@@ -210,13 +216,44 @@ def classify_intent(email_text: str) -> str:
     return "simple"
 
 class SupportAIService:
-    def __init__(self):
+    def __init__(self, state_path: str | Path | None = None, token_budget: int = 4000):
         self.sl_model = SLModel()
         self.frontier_model = FrontierModel()
+        self.conversation = ConversationBuilder(state_path=state_path, token_budget=token_budget)
+
+        if not self.conversation.has_role("system"):
+            self.conversation.append_message(
+                "system",
+                "You are a helpful support agent. Use the prior conversation when responding.",
+                _estimate_token_count("You are a helpful support agent. Use the prior conversation when responding."),
+            )
+
+    def _build_prompt(self, email_text: str) -> str:
+        self.conversation.append_message("user", email_text, _estimate_token_count(email_text))
+        transcript = self.conversation.render_transcript().strip()
+        if not transcript:
+            return email_text
+        return transcript
 
     def handle_ticket(self, email_text: str):
         intent = classify_intent(email_text)
+        prompt_text = self._build_prompt(email_text)
+        assistant_response_text = ""
         if intent == "simple":
-            yield from self.sl_model.infer_response(email_text)
+            stream = self.sl_model.infer_response(prompt_text)
         else:
-            yield from self.frontier_model.infer_response(email_text)
+            stream = self.frontier_model.infer_response(prompt_text)
+
+        try:
+            for event in stream:
+                if isinstance(event, dict) and event.get("type") == "completed":
+                    data = event.get("data", {}) or {}
+                    assistant_response_text = str(data.get("response_text", ""))
+                yield event
+        finally:
+            if assistant_response_text:
+                self.conversation.append_message(
+                    "assistant",
+                    assistant_response_text,
+                    _estimate_token_count(assistant_response_text),
+                )

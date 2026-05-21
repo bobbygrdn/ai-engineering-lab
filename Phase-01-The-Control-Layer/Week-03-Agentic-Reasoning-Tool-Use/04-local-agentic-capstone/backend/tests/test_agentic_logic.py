@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 import json
 import pytest
+from pathlib import Path
 import modules.logic.agentic_logic as agentic_logic
 from modules.logic.agentic_logic import classify_support_ticket_stream, classify_support_ticket_with_retries
 from modules.schemas.type_safety import Metadata, SupportTicket
@@ -105,10 +106,20 @@ def test_log_invalid_output(tmp_path, monkeypatch):
     output = None
     error = "ValidationError: Invalid input"
 
-    log_invalid_output(email_text, output, error)
+    log_path = Path(__file__).resolve().parents[1] / "logs" / "invalid_outputs.jsonl"
+    original_contents = log_path.read_text(encoding="utf-8") if log_path.exists() else None
 
-    contents = (tmp_path / "invalid_outputs.jsonl").read_text().strip().splitlines()
-    assert len(contents) == 1
-    payload = json.loads(contents[0])
-    assert payload["email_text"] == email_text
-    assert payload["error"] == error
+    try:
+        log_invalid_output(email_text, output, error)
+
+        contents = log_path.read_text(encoding="utf-8").strip().splitlines()
+        assert len(contents) >= 1
+        payload = json.loads(contents[-1])
+        assert payload["email_text"] == email_text
+        assert payload["error"] == error
+    finally:
+        if original_contents is None:
+            if log_path.exists():
+                log_path.unlink()
+        else:
+            log_path.write_text(original_contents, encoding="utf-8")

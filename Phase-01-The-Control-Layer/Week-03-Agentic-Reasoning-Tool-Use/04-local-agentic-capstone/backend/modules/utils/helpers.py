@@ -2,7 +2,11 @@ from datetime import datetime
 from modules.utils.logging import logger
 import json
 import re
+from pathlib import Path
 from typing import Optional, Any
+
+
+BACKEND_ROOT = Path(__file__).resolve().parents[2]
 
 def log_invalid_output(email_text, output, error):
     record = {
@@ -11,7 +15,9 @@ def log_invalid_output(email_text, output, error):
         "output": output,
         "error": error,
     }
-    with open('invalid_outputs.jsonl', 'a', encoding='utf-8') as log_file:
+    log_path = BACKEND_ROOT / 'logs' / 'invalid_outputs.jsonl'
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with log_path.open('a', encoding='utf-8') as log_file:
         log_file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 def extract_json(text):
