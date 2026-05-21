@@ -3,13 +3,17 @@
 ## Daily Progress
 
 - **Date:** 2026-05-21
-  - **Summary:** Hooked the new working-memory layer into the agent flow, added incremental conversation persistence with a strict token budget and sliding-window trimming, and fixed logging so invalid outputs always write to `backend/logs`. Also kept the benchmark improvements intact, including labeled examples and ground-truth metrics.
+  - **Summary:** Implemented Durable State & Attention Optimization (typed persistent memories, hydration/prioritization, attention-optimized prompt assembly), structured write-back parsing, tokenizer-aware token accounting, memory summarization/compaction, hydration caching, metrics instrumentation, and deterministic prompt assembly fixes. Integrated durable memories into the agent flow and verified with unit tests and CI.
   - **Completed:**
-    - **Working memory — ConversationBuilder:** Added an incremental in-memory conversation state that appends messages as they arrive, trims the oldest non-system turns when the token budget is exceeded, and persists state to JSON.
-    - **Agent flow integration:** Wired `SupportAIService` to use the conversation history when building prompts, then append assistant responses back into memory after completion.
-    - **Persistence and compatibility:** Kept the working-memory state format JSON-based and added tests for reload behavior and multi-turn prompt reuse.
-    - **Logging fix:** Changed `log_invalid_output()` so invalid-output logs always resolve under `backend/logs/invalid_outputs.jsonl`, regardless of the current working directory.
-    - **Verification:** Ran the focused working-memory tests and the invalid-output logging test successfully after the integration changes.
+    - **Durable memories:** Added a typed durable memory implementation (`modules/memory/durable_memory.py`) supporting `preferences`, `past_issues`, and `system_context` stored as JSON and updated via structured patches.
+    - **Write-back protocol:** Standardized a write-back instruction (`PATCHES:`) and parser so the assistant can emit a JSON array of patches (upsert/delete) which are parsed and applied back to the durable store.
+    - **DurableMemoryManager:** Implemented `modules/memory/integration.py` to hydrate, build memory sections, cache hydrations, and apply LLM write-backs from `SupportAIService`.
+    - **Attention-optimized prompt assembly:** Added attention zones (Top / Middle / Bottom) and zone-aware hydration with configurable token-budget slices (reuse 4000 token default; top=25%/bottom=10%) to assemble prompts that prioritize high-attention memories.
+    - **Token accounting & optimization:** Integrated `modules/utils/tokenizer.py` (tiktoken fallback), compact transcript rendering, summarization of old messages (`modules/memory/summarizer.py`), and hydration caching to reduce tokens & latency.
+    - **Service integration & robustness:** Wired durable memory hydration into `SupportAIService` prompt assembly, added intent-aware compact transcripts for simple intents, and ensured the latest assistant message is deterministically included to avoid eviction during trimming.
+    - **Metrics & instrumentation:** Added lightweight metrics logging (`modules/utils/metrics.py`) to record prompt/completion tokens and durations for interactions.
+    - **Tests & CI:** Added/updated unit tests (`backend/tests/test_durable_memory.py`, `backend/tests/test_working_memory.py`, etc.) and a GitHub Actions CI workflow (`.github/workflows/ci.yml`). Ran full test suite — all tests pass locally (`37 passed`).
+    - **Verification:** Reproduced failing intermittent behavior, implemented a deterministic fix (prefer persisted last-assistant snapshot before appending user), and validated with repeated pytest runs.
 
 - **Date:** 2026-05-20
   - **Summary:** Added ground-truth benchmarking, integrated labeled dataset examples, enhanced the benchmark runner with batching, per-email timeouts, and JSONL trace/invalid-output logging; implemented ground-truth comparison metrics and updated summaries; finalized SSE streaming and frontend integration; updated tests and verified benchmark unit tests pass.
