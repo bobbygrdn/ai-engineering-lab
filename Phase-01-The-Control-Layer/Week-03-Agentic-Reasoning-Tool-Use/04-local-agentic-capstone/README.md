@@ -2,6 +2,15 @@
 
 ## Daily Progress
 
+- **Date:** 2026-05-21
+  - **Summary:** Hooked the new working-memory layer into the agent flow, added incremental conversation persistence with a strict token budget and sliding-window trimming, and fixed logging so invalid outputs always write to `backend/logs`. Also kept the benchmark improvements intact, including labeled examples and ground-truth metrics.
+  - **Completed:**
+    - **Working memory — ConversationBuilder:** Added an incremental in-memory conversation state that appends messages as they arrive, trims the oldest non-system turns when the token budget is exceeded, and persists state to JSON.
+    - **Agent flow integration:** Wired `SupportAIService` to use the conversation history when building prompts, then append assistant responses back into memory after completion.
+    - **Persistence and compatibility:** Kept the working-memory state format JSON-based and added tests for reload behavior and multi-turn prompt reuse.
+    - **Logging fix:** Changed `log_invalid_output()` so invalid-output logs always resolve under `backend/logs/invalid_outputs.jsonl`, regardless of the current working directory.
+    - **Verification:** Ran the focused working-memory tests and the invalid-output logging test successfully after the integration changes.
+
 - **Date:** 2026-05-20
   - **Summary:** Added ground-truth benchmarking, integrated labeled dataset examples, enhanced the benchmark runner with batching, per-email timeouts, and JSONL trace/invalid-output logging; implemented ground-truth comparison metrics and updated summaries; finalized SSE streaming and frontend integration; updated tests and verified benchmark unit tests pass.
   - **Completed:**
