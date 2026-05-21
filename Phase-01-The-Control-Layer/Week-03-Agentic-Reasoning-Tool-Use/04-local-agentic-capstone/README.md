@@ -3,17 +3,13 @@
 ## Daily Progress
 
 - **Date:** 2026-05-21
-  - **Summary:** Implemented Durable State & Attention Optimization (typed persistent memories, hydration/prioritization, attention-optimized prompt assembly), structured write-back parsing, tokenizer-aware token accounting, memory summarization/compaction, hydration caching, metrics instrumentation, and deterministic prompt assembly fixes. Integrated durable memories into the agent flow and verified with unit tests and CI.
+  - **Summary:** Implemented Durable State & Attention Optimization features and added a comprehensive interactions play-by-play stream for lifecycle visibility. This includes structured interaction events for prompts and streaming, detailed trimming/compression lifecycle events, and write-back parse/apply instrumentation. Verified changes with unit tests.
   - **Completed:**
-    - **Durable memories:** Added a typed durable memory implementation (`modules/memory/durable_memory.py`) supporting `preferences`, `past_issues`, and `system_context` stored as JSON and updated via structured patches.
-    - **Write-back protocol:** Standardized a write-back instruction (`PATCHES:`) and parser so the assistant can emit a JSON array of patches (upsert/delete) which are parsed and applied back to the durable store.
-    - **DurableMemoryManager:** Implemented `modules/memory/integration.py` to hydrate, build memory sections, cache hydrations, and apply LLM write-backs from `SupportAIService`.
-    - **Attention-optimized prompt assembly:** Added attention zones (Top / Middle / Bottom) and zone-aware hydration with configurable token-budget slices (reuse 4000 token default; top=25%/bottom=10%) to assemble prompts that prioritize high-attention memories.
-    - **Token accounting & optimization:** Integrated `modules/utils/tokenizer.py` (tiktoken fallback), compact transcript rendering, summarization of old messages (`modules/memory/summarizer.py`), and hydration caching to reduce tokens & latency.
-    - **Service integration & robustness:** Wired durable memory hydration into `SupportAIService` prompt assembly, added intent-aware compact transcripts for simple intents, and ensured the latest assistant message is deterministically included to avoid eviction during trimming.
-    - **Metrics & instrumentation:** Added lightweight metrics logging (`modules/utils/metrics.py`) to record prompt/completion tokens and durations for interactions.
-    - **Tests & CI:** Added/updated unit tests (`backend/tests/test_durable_memory.py`, `backend/tests/test_working_memory.py`, etc.) and a GitHub Actions CI workflow (`.github/workflows/ci.yml`). Ran full test suite — all tests pass locally (`37 passed`).
-    - **Verification:** Reproduced failing intermittent behavior, implemented a deterministic fix (prefer persisted last-assistant snapshot before appending user), and validated with repeated pytest runs.
+    - **Interactions stream:** Added `modules/utils/interactions.py` and instrumented `SupportAIService.handle_ticket()` to emit prompt/send lifecycle events (`prompt_sent`, `delta`, `done`, `completed`, `assistant_appended`, `writeback_applied`, `writeback_failed`). Events are recorded to `logs/interactions/interactions.log` for end-to-end play-by-play.
+    - **Conversation lifecycle events:** Instrumented `modules/memory/working_memory.py` to emit `message_appended`, `trimming_started`, `trimming_compressed`, `trimming_fallback_summary`, `message_evicted`, and `trimming_completed` events to expose exactly when trimming and evictions occur.
+    - **Recursive compressor events:** Instrumented `modules/memory/recursive_compressor.py` to emit `recursive_compress_started`, `recursive_compress_iteration`, `recursive_compress_inserted_summary`, and `recursive_compress_completed` for iteration-level visibility during compression passes.
+    - **Durable write-back lifecycle:** Instrumented `modules/memory/durable_memory.py` parse/apply logic to emit `writeback_parse_started`, `writeback_parse_failed`, and `writeback_applied` events capturing parse attempt, failures, and patch application results.
+    - **Test validation:** Ran the test suite after instrumentation — all tests pass locally (`38 passed`).
 
 - **Date:** 2026-05-20
   - **Summary:** Added ground-truth benchmarking, integrated labeled dataset examples, enhanced the benchmark runner with batching, per-email timeouts, and JSONL trace/invalid-output logging; implemented ground-truth comparison metrics and updated summaries; finalized SSE streaming and frontend integration; updated tests and verified benchmark unit tests pass.
