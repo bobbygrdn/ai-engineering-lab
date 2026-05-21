@@ -16,9 +16,9 @@ from modules.utils.helpers import log_invalid_output
 from modules.utils.logging import logger
 
 
-DEFAULT_INPUT_NAME = "benchmark_emails.json"
-DEFAULT_SUMMARY_NAME = "benchmark.md"
-DEFAULT_TRACE_NAME = "benchmark_trace.jsonl"
+DEFAULT_INPUT_NAME = "logs/benchmark/benchmark_emails.json"
+DEFAULT_SUMMARY_NAME = "logs/benchmark/benchmark.md"
+DEFAULT_TRACE_NAME = "logs/benchmark/benchmark_trace.jsonl"
 DEFAULT_EMAIL_TIMEOUT_SECONDS = 30
 DEFAULT_BATCH_SIZE = 10
 DEFAULT_BATCH_PAUSE_SECONDS = 15
