@@ -30,3 +30,36 @@
   max-width: 1000px;
   margin: 0 auto;
 }
+
+.signed-in-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255,255,255,0.06);
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  color: #fff;
+}
+
+.signed-in-bar button {
+  background: linear-gradient(90deg,#ff7a18,#af002d);
+  color: white;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  box-shadow: 0 6px 18px rgba(175,0,45,0.18);
+  transition: transform .12s ease, box-shadow .12s ease, opacity .12s ease;
+}
+
+.signed-in-bar button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(175,0,45,0.22);
+}
+
+.signed-in-bar button:active {
+  transform: translateY(0);
+  opacity: 0.95;
+}
