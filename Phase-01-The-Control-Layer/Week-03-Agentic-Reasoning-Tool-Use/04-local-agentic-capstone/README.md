@@ -2,6 +2,23 @@
 
 ## Daily Progress
 
+- **Date:** 2026-05-22
+  - **Summary:** Improved frontend session-expiry testability and fixed the end-to-end session-expiry flow. Replaced inline DOM notification with a React-managed `Toast`, exported a testable subscription helper from the session notifier, added deterministic unit and DOM tests, installed `jsdom` for the test environment, and verified all frontend tests pass locally.
+  - **Completed:**
+    - **Session notifier helper:** Exported `subscribeToAuthLogout` from `frontend/src/components/ui/SessionNotifier.tsx` to allow non-DOM unit testing of the `auth:logged_out` subscription.
+    - **Unit tests:** Added `frontend/src/__tests__/sessionNotifier.helper.test.ts` to verify the helper's subscribe/unsubscribe behavior.
+    - **DOM test:** Enabled and fixed `frontend/src/__tests__/sessionExpiry.test.tsx` to run under `jsdom` and validate the full flow (failed refresh → `auth:logged_out` → `Toast` shown; tokens cleared).
+    - **Replace inline toast:** Removed the inline notification script from `frontend/index.html` and wired React `Toast` rendering in `frontend/src/App.tsx` so UI notifications are managed inside React.
+    - **Styling:** Adjusted `frontend/src/App.css` to style the "Logout All Devices" button and related UI elements.
+    - **Test environment:** Installed `jsdom` as a devDependency and ensured Vitest runs tests in `jsdom` for DOM tests (`npx vitest run` used to validate behavior).
+    - **Test stability:** Updated tests to stub `fetch` and provide a minimal `localStorage` implementation where needed so tests are deterministic in CI-like environments.
+    - **Validation:** Ran the frontend test suite locally — all frontend tests passed (3 passed). Backend tests remain passing (45 passed).
+    - **Auth system (backend):** Implemented full authentication and session management.
+      - **Implementation:** Added secure registration/login, JWT `access_token` and rotating `refresh_token` with `jti` tracking, refresh rotation and revocation endpoints (`/api/auth/refresh`, `/api/auth/logout`, `/api/auth/logout_all`). Core logic in `backend/modules/auth/security.py` and `backend/modules/auth/*` modules; routed through `backend/app.py`.
+      - **State persistence:** Added SQLite-backed durable state store (`backend/modules/state/sqlite_store.py`) to persist refresh token `jti`s, per-user messages/memories/interactions, and revocation records.
+      - **Middleware & safety:** Added rate limiting and auth middleware to protect auth endpoints and token use; logout-all revokes all active refresh tokens for a user.
+      - **Tests & validation:** Added tests covering registration, login, refresh rotation, token revocation and logout flows; backend test suite passes locally (45 passed).
+
 - **Date:** 2026-05-21
   - **Summary:** Implemented Durable State & Attention Optimization features and added a comprehensive interactions play-by-play stream for lifecycle visibility. This includes structured interaction events for prompts and streaming, detailed trimming/compression lifecycle events, and write-back parse/apply instrumentation. Verified changes with unit tests.
   - **Completed:**
