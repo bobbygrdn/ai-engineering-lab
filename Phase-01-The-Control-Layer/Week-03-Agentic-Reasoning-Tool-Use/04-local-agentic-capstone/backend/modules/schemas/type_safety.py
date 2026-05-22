@@ -3,9 +3,11 @@ from modules.utils.logging import logger
 from modules.memory import ConversationBuilder
 from modules.memory.integration import DurableMemoryManager
 from modules.memory import DurableMemoryStore
-from modules.memory.durable_memory import WRITEBACK_INSTRUCTION
+from modules.memory.durable_memory import WRITEBACK_INSTRUCTION, extract_patches_from_text
+from modules.state import SQLiteStateStore
 from enum import Enum
 from pathlib import Path
+from typing import Any, Optional
 import time
 
 class Priority(str, Enum):
@@ -31,6 +33,38 @@ class SupportTicket(BaseModel):
 
 class ClassifyRequest(BaseModel):
     email_text: str = Field(..., description="The text of the customer email to classify")
+
+
+class RegisterRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=64)
+    email: str = Field(..., min_length=5, max_length=254)
+    password: str = Field(..., min_length=10, max_length=200)
+
+
+class LoginRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=64)
+    password: str = Field(..., min_length=10, max_length=200)
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=20)
+
+
+class LogoutRequest(BaseModel):
+    refresh_token: str = Field(..., min_length=20)
+
+
+class UserProfile(BaseModel):
+    id: int
+    username: str
+    email: str
+
+
+class AuthResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str = "bearer"
+    user: UserProfile
 
 class Metadata(BaseModel):
     total_duration: float = Field(..., description="Total processing time in seconds.")
@@ -252,12 +286,19 @@ def classify_intent(email_text: str) -> str:
     return "simple"
 
 class SupportAIService:
-    def __init__(self, state_path: str | Path | None = None, token_budget: int = 4000):
+    def __init__(
+        self,
+        state_path: str | Path | None = None,
+        token_budget: int = 4000,
+        state_store: Optional[SQLiteStateStore] = None,
+    ):
         self.sl_model = SLModel()
         self.frontier_model = FrontierModel()
+        self.state_store = state_store
+        self.token_budget = token_budget
         self.conversation = ConversationBuilder(state_path=state_path, token_budget=token_budget)
 
-        # durable memory manager for typed memories
+        # legacy file-based durable memory for non-user-scoped test and fallback flows
         self.durable_mgr = DurableMemoryManager(store=DurableMemoryStore(token_budget=token_budget))
 
         if not self.conversation.has_role("system"):
@@ -265,20 +306,39 @@ class SupportAIService:
                 "You are a helpful support agent. Use the prior conversation when responding.\n"
                 + WRITEBACK_INSTRUCTION
             )
-            self.conversation.append_message(
-                "system",
-                sys_text,
-                _estimate_token_count(sys_text),
-            )
+            self.conversation.append_message("system", sys_text, _estimate_token_count(sys_text))
 
-    def _build_prompt(self, email_text: str, intent: str | None = None) -> str:
-        # Read persisted conversation first to deterministically capture the latest assistant
-        # message before a new user append may trigger trimming and eviction.
+    def _log_event(
+        self,
+        event_type: str,
+        payload: dict[str, Any],
+        user_id: Optional[int] = None,
+        request_meta: Optional[dict[str, str]] = None,
+    ) -> None:
+        try:
+            record_event(event_type, payload)
+        except Exception:
+            pass
+        if self.state_store is None:
+            return
+        try:
+            self.state_store.record_interaction(
+                event_type=event_type,
+                payload=payload,
+                user_id=user_id,
+                ip_address=(request_meta or {}).get("ip_address"),
+                user_agent=(request_meta or {}).get("user_agent"),
+            )
+        except Exception as exc:
+            logger.debug(f"Failed to persist interaction event: {exc}")
+
+    def _build_prompt_legacy(self, email_text: str, intent: Optional[str] = None) -> str:
         persisted_last_assistant = None
         try:
             sp = getattr(self.conversation, "state_path", None)
             if sp and sp.exists():
                 import json
+
                 raw = json.loads(sp.read_text(encoding="utf-8"))
                 for item in reversed(raw.get("messages", [])):
                     if item.get("role") == "assistant":
@@ -287,9 +347,7 @@ class SupportAIService:
         except Exception:
             persisted_last_assistant = None
 
-        # append the current user message (this may trim older messages)
         self.conversation.append_message("user", email_text, _estimate_token_count(email_text))
-        # choose compact transcript for simple intents to reduce tokens and latency
         if intent == "simple":
             transcript = self.conversation.render_transcript_compact(max_tokens=120, max_messages=6).strip()
             types_to_hydrate = ["preferences"]
@@ -297,9 +355,7 @@ class SupportAIService:
             transcript = self.conversation.render_transcript().strip()
             types_to_hydrate = ["preferences", "past_issues", "system_context"]
 
-        # Hydrate typed memories and assemble attention-optimized sections
         try:
-            # use cache-enabled hydrate to avoid repeated disk loads
             zones = self.durable_mgr.hydrate_cached(types=types_to_hydrate, max_tokens=self.conversation.token_budget)
 
             def _short_content(m):
@@ -324,39 +380,22 @@ class SupportAIService:
             parts = []
             if top_section:
                 parts.append(top_section)
-            if transcript:
-                parts.append(transcript)
-            else:
-                parts.append(email_text)
+            parts.append(transcript if transcript else email_text)
             if middle_section:
                 parts.append(middle_section)
             if bottom_section:
                 parts.append(bottom_section)
 
             assembled = "\n\n".join(parts)
-            # rebuild final assembled prompt explicitly to ensure system, last assistant, transcript and user lines
             system_msgs = [m for m in self.conversation.messages if m.role == "system"]
             system_line = f"System: {system_msgs[0].content}" if system_msgs else ""
 
-            # Use the persisted last assistant we captured before appending the new user message
             last_assistant = persisted_last_assistant
-
-            # If persisted snapshot didn't have an assistant, fall back to in-memory and state
             if last_assistant is None:
-                # try the public messages list first
                 for m in reversed(self.conversation.messages):
                     if m.role == "assistant":
                         last_assistant = m.content
                         break
-                # fallback: try stored state messages for robustness
-                if last_assistant is None:
-                    try:
-                        for stored in reversed(self.conversation.state.messages):
-                            if getattr(stored.message, "role", "") == "assistant":
-                                last_assistant = getattr(stored.message, "content", None)
-                                break
-                    except Exception:
-                        pass
 
             user_line = f"User: {email_text}"
 
@@ -368,70 +407,150 @@ class SupportAIService:
             if assembled:
                 final_parts.append(assembled)
             final_parts.append(user_line)
-
             return "\n\n".join(final_parts)
         except Exception:
-            # fallback to transcript only
-            if not transcript:
-                return email_text
-            return transcript
+            return transcript if transcript else email_text
 
-    def handle_ticket(self, email_text: str):
+    def _build_prompt_db(self, user_id: int, email_text: str, intent: Optional[str] = None) -> str:
+        if self.state_store is None:
+            return self._build_prompt_legacy(email_text, intent)
+
+        if intent == "simple":
+            message_limit = 8
+            types_to_hydrate = ["preferences"]
+        else:
+            message_limit = 20
+            types_to_hydrate = ["preferences", "past_issues", "system_context"]
+
+        recent_messages = self.state_store.get_recent_messages(user_id=user_id, limit=message_limit)
+        transcript_lines = [f"{msg['role'].title()}: {msg['content']}" for msg in recent_messages]
+        transcript = "\n".join(transcript_lines).strip()
+
+        zones = self.state_store.hydrate_memories(
+            user_id=user_id,
+            types=types_to_hydrate,
+            max_tokens=self.token_budget,
+        )
+
+        def _render_memories(title: str, items: list[Any]) -> str:
+            if not items:
+                return ""
+            lines = [f"### {title}"]
+            for m in items:
+                lines.append(f"- [{m.type}] {m.content}")
+            return "\n".join(lines)
+
+        top = _render_memories("Memory Peak (Top)", zones.get("top", []))
+        middle = _render_memories("Low-Attention Zone (Middle)", zones.get("middle", []))
+        bottom = _render_memories("Memory Peak (Bottom)", zones.get("bottom", []))
+
+        system_line = (
+            "System: You are a helpful support agent. Use the prior conversation when responding.\n"
+            + WRITEBACK_INSTRUCTION
+        )
+        parts = [system_line]
+        if top:
+            parts.append(top)
+        if transcript:
+            parts.append(transcript)
+        if middle:
+            parts.append(middle)
+        if bottom:
+            parts.append(bottom)
+        parts.append(f"User: {email_text}")
+        return "\n\n".join(parts)
+
+    def _build_prompt(self, email_text: str, intent: Optional[str] = None, user_id: Optional[int] = None) -> str:
+        if user_id is not None and self.state_store is not None:
+            return self._build_prompt_db(user_id=user_id, email_text=email_text, intent=intent)
+        return self._build_prompt_legacy(email_text=email_text, intent=intent)
+
+    def handle_ticket(
+        self,
+        email_text: str,
+        user_id: Optional[int] = None,
+        request_meta: Optional[dict[str, str]] = None,
+        session_id: Optional[str] = None,
+    ):
         intent = classify_intent(email_text)
-        prompt_text = self._build_prompt(email_text, intent)
-        # best-effort: emit a prompt_sent event (trim large prompts)
-        try:
-            record_event("prompt_sent", {"intent": intent or "unknown", "summary": prompt_text[:500], "prompt_tokens_est": _estimate_token_count(prompt_text)})
-        except Exception:
-            pass
+
+        if user_id is not None and self.state_store is not None:
+            self.state_store.add_message(
+                user_id=user_id,
+                role="user",
+                content=email_text,
+                token_count=_estimate_token_count(email_text),
+                session_id=session_id,
+            )
+
+        prompt_text = self._build_prompt(email_text, intent, user_id=user_id)
+        self._log_event(
+            "prompt_sent",
+            {
+                "intent": intent or "unknown",
+                "summary": prompt_text[:500],
+                "prompt_tokens_est": _estimate_token_count(prompt_text),
+            },
+            user_id=user_id,
+            request_meta=request_meta,
+        )
 
         assistant_response_text = ""
-        if intent == "simple":
-            stream = self.sl_model.infer_response(prompt_text)
-        else:
-            stream = self.frontier_model.infer_response(prompt_text)
+        stream = self.sl_model.infer_response(prompt_text) if intent == "simple" else self.frontier_model.infer_response(prompt_text)
 
         try:
             for event in stream:
-                # capture streaming events: delta, done, completed
                 try:
                     if isinstance(event, dict):
                         t = event.get("type")
                         if t == "delta":
                             d = event.get("data", {}) or {}
                             txt = d.get("text") if isinstance(d, dict) else None
-                            record_event("delta", {"text": (txt or "")[:1000]})
+                            self._log_event("delta", {"text": (txt or "")[:1000]}, user_id, request_meta)
                         elif t == "done":
-                            record_event("done", {})
+                            self._log_event("done", {}, user_id, request_meta)
                         elif t == "completed":
                             d = event.get("data", {}) or {}
-                            record_event("completed", {"response_text": (d.get("response_text") or "")[:1000], "intent": d.get("intent")})
+                            self._log_event(
+                                "completed",
+                                {"response_text": (d.get("response_text") or "")[:1000], "intent": d.get("intent")},
+                                user_id,
+                                request_meta,
+                            )
                             assistant_response_text = str(d.get("response_text", ""))
                 except Exception:
                     pass
                 yield event
         finally:
-            if assistant_response_text:
+            if not assistant_response_text:
+                return
+
+            if user_id is not None and self.state_store is not None:
+                self.state_store.add_message(
+                    user_id=user_id,
+                    role="assistant",
+                    content=assistant_response_text,
+                    token_count=_estimate_token_count(assistant_response_text),
+                    session_id=session_id,
+                )
+            else:
                 self.conversation.append_message(
                     "assistant",
                     assistant_response_text,
                     _estimate_token_count(assistant_response_text),
                 )
-                try:
-                    record_event("assistant_appended", {"text": assistant_response_text[:1000]})
-                except Exception:
-                    pass
-                # attempt to parse structured write-back patches from assistant and apply
-                try:
-                    res = self.durable_mgr.apply_llm_writeback(assistant_response_text)
-                    logger.info(f"Applied durable memory patches: {res}")
-                    try:
-                        record_event("writeback_applied", {"result": res})
-                    except Exception:
-                        pass
-                except Exception as e:
-                    logger.debug(f"No structured write-back applied or parse failed: {e}")
-                    try:
-                        record_event("writeback_failed", {"error": str(e)[:1000]})
-                    except Exception:
-                        pass
+
+            self._log_event("assistant_appended", {"text": assistant_response_text[:1000]}, user_id, request_meta)
+
+            try:
+                if user_id is not None and self.state_store is not None:
+                    patches = extract_patches_from_text(assistant_response_text)
+                    res = self.state_store.apply_patches(user_id=user_id, patches=patches)
+                else:
+                    applied = self.durable_mgr.apply_llm_writeback(assistant_response_text)
+                    res = applied.get("applied", []) if isinstance(applied, dict) else []
+                logger.info(f"Applied durable memory patches: {res}")
+                self._log_event("writeback_applied", {"result": res}, user_id, request_meta)
+            except Exception as exc:
+                logger.debug(f"No structured write-back applied or parse failed: {exc}")
+                self._log_event("writeback_failed", {"error": str(exc)[:1000]}, user_id, request_meta)

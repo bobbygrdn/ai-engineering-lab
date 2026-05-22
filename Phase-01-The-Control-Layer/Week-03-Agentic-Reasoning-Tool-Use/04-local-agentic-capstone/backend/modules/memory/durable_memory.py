@@ -316,7 +316,20 @@ def parse_and_apply_response(store: DurableMemoryStore, text: str) -> Dict[str, 
     Expects the LLM to emit either a JSON array or an object with `patches`.
     Returns the apply_patches result or raises ValueError when parsing fails.
     """
-    # naive extraction: find first '[' or '{' and load JSON from there
+    patches = extract_patches_from_text(text)
+    results = store.apply_patches(patches)
+    try:
+        record_event("writeback_applied", {"patch_count": len(patches), "results": results})
+    except Exception:
+        pass
+    return {"applied": results}
+
+
+def extract_patches_from_text(text: str) -> List[Dict[str, Any]]:
+    """Extract write-back patches from a model response.
+
+    Accepts either a top-level JSON array or an object with a `patches` field.
+    """
     import json
 
     try:
@@ -352,10 +365,7 @@ def parse_and_apply_response(store: DurableMemoryStore, text: str) -> Dict[str, 
     else:
         raise ValueError("Unsupported patch format")
 
-    results = store.apply_patches(patches)
-    try:
-        record_event("writeback_applied", {"patch_count": len(patches), "results": results})
-    except Exception:
-        pass
-    return {"applied": results}
+    if not isinstance(patches, list):
+        raise ValueError("Patches must be a list")
+    return patches
 

@@ -1,6 +1,7 @@
 import logging
 from types import SimpleNamespace
 import pytest
+import uuid
 
 import modules.logic.agentic_logic as agentic_logic
 from modules.logic.agentic_logic import classify_support_ticket_stream, classify_support_ticket_with_retries
@@ -113,14 +114,26 @@ def test_handle_endpoint_returns_500_on_internal_error(monkeypatch):
    client = TestClient(app_module.app)
    original_handle = getattr(app_module.ai_service, "handle_ticket", None)
 
-   def raise_error_generator(text):
+   def raise_error_generator(*args, **kwargs):
        raise Exception("Missing API Key")
        yield  # Make this a generator function
 
    app_module.ai_service.handle_ticket = raise_error_generator
 
    try:
-       resp = client.post("/api/handle", json={"email_text": "Will this fail?"})
+       username = f"edge_{uuid.uuid4().hex[:8]}"
+       register = client.post(
+           "/api/auth/register",
+           json={"username": username, "email": f"{username}@example.com", "password": "StrongPass123!"},
+       )
+       assert register.status_code == 200
+       token = register.json()["access_token"]
+
+       resp = client.post(
+           "/api/handle",
+           json={"email_text": "Will this fail?"},
+           headers={"Authorization": f"Bearer {token}"},
+       )
        # With streaming, we get 200 with an error event inside the stream
        assert resp.status_code == 200
        
