@@ -24,6 +24,20 @@ from modules.schemas.type_safety import (
 from modules.state import SQLiteStateStore
 from modules.utils.helpers import log_invalid_output
 from pydantic import ValidationError
+from modules.tools.engine import engine as tool_engine
+from modules.tools.sql_read_only import SQL_READ_ONLY_MANIFEST, read_only_query_tool
+from modules.tools.sample_tools import (
+    GET_TICKET_MANIFEST,
+    get_ticket_by_id,
+    LIST_BY_STATUS_MANIFEST,
+    list_tickets_by_status,
+    SEARCH_KEYWORD_MANIFEST,
+    search_tickets_keyword,
+    COUNT_OPEN_BY_DEPT_MANIFEST,
+    count_open_by_department,
+)
+from modules.tools.hooks_builtin import rate_limit_hook_factory
+from modules.tools.hooks_builtin import role_check_state_store_factory, role_check_token_per_tool_factory
 
 app = FastAPI()
 
@@ -32,6 +46,32 @@ state_store = SQLiteStateStore(db_path=DB_PATH)
 state_store.init_db()
 
 auth_manager = AuthManager()
+
+# register tools used by the AI (best-effort)
+try:
+    # register tools and per-manifest hooks for allowed_roles
+    for m, fn in [
+        (SQL_READ_ONLY_MANIFEST, read_only_query_tool),
+        (GET_TICKET_MANIFEST, get_ticket_by_id),
+        (LIST_BY_STATUS_MANIFEST, list_tickets_by_status),
+        (SEARCH_KEYWORD_MANIFEST, search_tickets_keyword),
+        (COUNT_OPEN_BY_DEPT_MANIFEST, count_open_by_department),
+    ]:
+        tool_engine.register_tool(m, fn)
+        # register per-manifest role-check hook if manifest expresses allowed_roles
+        if m.get("allowed_roles"):
+            hook = role_check_token_per_tool_factory(auth_manager, state_store, m.get("allowed_roles"), m.get("name"))
+            tool_engine.register_pre_invoke_hook(hook)
+
+    # register a default rate limit hook (defense-in-depth)
+    tool_engine.register_pre_invoke_hook(rate_limit_hook_factory(max_calls=1000, window_seconds=60))
+    # configure engine to require access tokens for all invocations (AI will always be the caller)
+    tool_engine.set_auth_manager(auth_manager)
+    tool_engine.require_token_for_all_invocations(True)
+except Exception:
+    # best-effort: registration failures shouldn't break startup
+    pass
+
 ai_service = SupportAIService(state_store=state_store)
 auth_security = HTTPBearer(auto_error=False)
 auth_rate_limiter = AuthRateLimiter()

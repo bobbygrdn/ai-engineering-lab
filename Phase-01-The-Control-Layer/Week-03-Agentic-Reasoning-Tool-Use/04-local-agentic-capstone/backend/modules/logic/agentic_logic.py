@@ -1,6 +1,7 @@
 from modules.utils.helpers import log_invalid_output, extract_json, calculate_price, print_ticket
 from modules.schemas.type_safety import SupportTicket, Metadata, Usage
 from modules.utils.logging import logger
+from modules.tools.framing import frame_user_data, FramingError
 from modules.utils.exceptions import EmptyPromptError, RateLimitExceededError, RefusalError
 from typing import Optional, Tuple, Any
 from pydantic import ValidationError
@@ -90,12 +91,19 @@ def classify_support_ticket_stream(email_text: str) -> Tuple[Optional[SupportTic
     refusal_detected = False
 
     try:
+        # Frame user input to prevent prompt injection and ensure explicit data tagging.
+        try:
+            framed = frame_user_data(email_text)
+        except FramingError as e:
+            logger.error(f"Framing error: {e}")
+            log_invalid_output(email_text, None, f"Framing error: {str(e)}")
+            return None, Metadata(total_duration=time.time() - start, usage=Usage(**usage_dict))
 
         stream = openai_client.responses.create(
             model="gpt-4o-mini",
             input=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": email_text},
+                {"role": "user", "content": framed},
             ],
             stream=True,
         )

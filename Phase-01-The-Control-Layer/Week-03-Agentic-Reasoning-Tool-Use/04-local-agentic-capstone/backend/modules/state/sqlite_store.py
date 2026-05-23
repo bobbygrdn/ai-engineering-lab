@@ -108,6 +108,14 @@ class SQLiteStateStore:
                     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS user_roles (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    role TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
                 CREATE INDEX IF NOT EXISTS idx_messages_user_created ON messages(user_id, created_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_memories_user_type ON memories(user_id, type);
@@ -125,6 +133,27 @@ class SQLiteStateStore:
             )
             user_id = int(cur.lastrowid)
             return UserRecord(id=user_id, username=username, email=email)
+
+    def assign_role_to_user(self, user_id: int, role: str) -> None:
+        now = _now_iso()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO user_roles (user_id, role, created_at) VALUES (?, ?, ?)",
+                (user_id, role, now),
+            )
+
+    def get_roles_for_user_id(self, user_id: int) -> list[str]:
+        with self._connect() as conn:
+            rows = conn.execute("SELECT role FROM user_roles WHERE user_id = ?", (user_id,)).fetchall()
+            return [r["role"] for r in rows]
+
+    def get_roles_for_username(self, username: str) -> list[str]:
+        with self._connect() as conn:
+            row = conn.execute("SELECT id FROM users WHERE username = ?", (username,)).fetchone()
+            if not row:
+                return []
+            user_id = int(row["id"])
+            return self.get_roles_for_user_id(user_id)
 
     def get_user_by_username(self, username: str) -> Optional[Dict[str, Any]]:
         with self._connect() as conn:
