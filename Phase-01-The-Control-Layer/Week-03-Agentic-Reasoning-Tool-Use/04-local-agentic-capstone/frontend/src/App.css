@@ -42,6 +42,56 @@
   color: #fff;
 }
 
+.signed-in-left {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.session-health-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  border: 1px solid transparent;
+}
+
+.session-seconds {
+  font-weight: 600;
+  opacity: 0.95;
+}
+
+.session-healthy {
+  background: rgba(0, 180, 120, 0.2);
+  border-color: rgba(0, 220, 150, 0.55);
+  color: #a5ffd8;
+}
+
+.session-expiring {
+  background: rgba(255, 180, 0, 0.2);
+  border-color: rgba(255, 210, 90, 0.6);
+  color: #ffe6a8;
+}
+
+.session-expired,
+.session-missing {
+  background: rgba(255, 70, 70, 0.2);
+  border-color: rgba(255, 120, 120, 0.6);
+  color: #ffd0d0;
+}
+
+@media (max-width: 720px) {
+  .signed-in-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
 .signed-in-bar button {
   background: linear-gradient(90deg,#ff7a18,#af002d);
   color: white;

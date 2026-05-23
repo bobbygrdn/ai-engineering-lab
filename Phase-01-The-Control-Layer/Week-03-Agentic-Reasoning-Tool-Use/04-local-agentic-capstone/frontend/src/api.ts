@@ -146,11 +146,33 @@ export async function streamHandleEmail(
     onError: (error: string) => void
 ) {
     try {
-        const response = await fetchWithAuth('http://localhost:8000/api/handle', {
+        const token = await getValidAccessToken()
+        if (!token) {
+            onError('Authentication required. Please sign in again.')
+            return
+        }
+
+        const response = await fetch('http://localhost:8000/api/handle', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+            },
             body: JSON.stringify({ email_text: emailText }),
         });
+
+        if (response.status === 401) {
+            try {
+                localStorage.removeItem('access_token')
+                localStorage.removeItem('refresh_token')
+                localStorage.removeItem('username')
+                window.dispatchEvent(new CustomEvent('auth:logged_out'))
+            } catch {
+                // ignore in non-browser contexts
+            }
+            onError('Session expired or invalid. Please sign in again.')
+            return
+        }
 
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
@@ -224,4 +246,30 @@ export async function streamHandleEmail(
     } catch (error) {
         onError(error instanceof Error ? error.message : String(error));
     }
+}
+
+export type SessionHealthStatus = 'healthy' | 'expiring' | 'expired' | 'missing'
+
+export function getSessionHealthSnapshot(
+    expiringWindowSeconds: number = 120
+): { status: SessionHealthStatus; label: string; secondsRemaining: number | null } {
+    const access = localStorage.getItem('access_token')
+    if (!access) {
+        return { status: 'missing', label: 'Missing', secondsRemaining: null }
+    }
+
+    const payload = parseJwt(access)
+    if (!payload || !payload.exp) {
+        return { status: 'expired', label: 'Expired', secondsRemaining: null }
+    }
+
+    const now = Math.floor(Date.now() / 1000)
+    const remaining = Number(payload.exp) - now
+    if (remaining <= 0) {
+        return { status: 'expired', label: 'Expired', secondsRemaining: 0 }
+    }
+    if (remaining <= expiringWindowSeconds) {
+        return { status: 'expiring', label: 'Expiring', secondsRemaining: remaining }
+    }
+    return { status: 'healthy', label: 'Healthy', secondsRemaining: remaining }
 }

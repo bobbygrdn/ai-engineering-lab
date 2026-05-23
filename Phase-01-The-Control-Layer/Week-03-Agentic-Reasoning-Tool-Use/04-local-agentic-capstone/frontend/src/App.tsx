@@ -1,6 +1,6 @@
 import './App.css'
 import { useState, useEffect } from 'react';
-import { streamHandleEmail, register, login, logoutAll } from './api';
+import { streamHandleEmail, register, login, logoutAll, getSessionHealthSnapshot } from './api';
 import InputForm from './components/inputForm/InputForm';
 import OutputDisplay from './components/outputDisplay/OutputDisplay';
 import AuthPanel from './components/auth/AuthPanel';
@@ -14,6 +14,11 @@ function App() {
   
   const [currentUser, setCurrentUser] = useState<string | null>(localStorage.getItem('username'));
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [sessionHealth, setSessionHealth] = useState(getSessionHealthSnapshot());
+
+  const refreshSessionHealth = () => {
+    setSessionHealth(getSessionHealthSnapshot())
+  }
 
   const handleSubmit = async (emailText: string) => {
     setStreamingText('');
@@ -50,6 +55,7 @@ function App() {
         setCompletedResponse(null)
         setError('')
         setCurrentUser(body.user.username)
+        refreshSessionHealth()
       } else if (body.detail) {
         setError(body.detail)
       }
@@ -71,6 +77,7 @@ function App() {
         setCompletedResponse(null)
         setError('')
         setCurrentUser(body.user.username)
+        refreshSessionHealth()
       } else if (body.detail) {
         setError(body.detail)
       }
@@ -91,6 +98,7 @@ function App() {
       setCompletedResponse(null)
       setError('')
       setCurrentUser(null)
+      refreshSessionHealth()
     } catch (e) {
       setError(String(e))
     }
@@ -107,10 +115,19 @@ function App() {
       localStorage.removeItem('refresh_token')
       localStorage.removeItem('username')
       setToastMessage('Session expired or invalid. Please sign in again.')
+      refreshSessionHealth()
     }
     window.addEventListener('auth:logged_out', onLoggedOut)
     return () => window.removeEventListener('auth:logged_out', onLoggedOut)
   }, [])
+
+  useEffect(() => {
+    refreshSessionHealth()
+    const id = window.setInterval(() => {
+      refreshSessionHealth()
+    }, 15000)
+    return () => window.clearInterval(id)
+  }, [currentUser])
 
 
   return (
@@ -121,11 +138,22 @@ function App() {
       </div>
 
       {!currentUser ? (
-        <AuthPanel onRegister={handleRegister} onLogin={handleLogin} onLogoutAll={handleLogoutAll} error={error} />
+        <AuthPanel onRegister={handleRegister} onLogin={handleLogin} error={error} />
       ) : (
         <div className="app-content">
           <div className="signed-in-bar">
-            <div>Signed in as <strong>{currentUser}</strong></div>
+            <div className="signed-in-left">
+              <div>Signed in as <strong>{currentUser}</strong></div>
+              <div
+                className={`session-health-badge session-${sessionHealth.status}`}
+                aria-label="session-health"
+              >
+                Session: {sessionHealth.label}
+                {sessionHealth.secondsRemaining !== null && sessionHealth.secondsRemaining >= 0 && (
+                  <span className="session-seconds"> ({sessionHealth.secondsRemaining}s)</span>
+                )}
+              </div>
+            </div>
             <button onClick={handleLogoutAll}>Logout All Devices</button>
           </div>
           <InputForm onSubmit={handleSubmit} isLoading={isLoading} />

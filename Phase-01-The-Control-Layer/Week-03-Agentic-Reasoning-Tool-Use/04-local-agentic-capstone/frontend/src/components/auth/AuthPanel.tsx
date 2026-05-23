@@ -3,11 +3,10 @@ import { useState } from 'react'
 type Props = {
   onRegister: (u: string, e: string, p: string) => Promise<void>
   onLogin: (u: string, p: string) => Promise<void>
-  onLogoutAll: () => Promise<void>
   error?: string
 }
 
-export default function AuthPanel({ onRegister, onLogin, onLogoutAll, error }: Props) {
+export default function AuthPanel({ onRegister, onLogin, error }: Props) {
   const [tab, setTab] = useState<'login' | 'register'>('login')
   const [username, setUsername] = useState('')
   const [email, setEmail] = useState('')
@@ -74,9 +73,7 @@ export default function AuthPanel({ onRegister, onLogin, onLogoutAll, error }: P
 
           {(localError || error) && <div className="auth-error">{localError || error}</div>}
 
-          <div style={{ marginTop: 12, textAlign: 'center' }}>
-            <button className="link" onClick={() => onLogoutAll()}>Logout all devices</button>
-          </div>
+          {/* Logout button moved to the signed-in view in App.tsx */}
         </div>
       </div>
     </div>
