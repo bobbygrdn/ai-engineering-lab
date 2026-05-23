@@ -2,6 +2,25 @@
 
 ## Daily Progress
 
+- **Date:** 2026-05-23
+  - **Summary:** Fixed a frontend UI bug and validated session/auth behavior. Removed the "Logout all devices" control from the unauthenticated login/register view, ensured logout remains available only for signed-in users, ran frontend tests, and confirmed token refresh behavior (deleting only `access_token` simulates expiry and does not log the user out while a valid `refresh_token` exists).
+  - **Completed:**
+    - **Auth UI fix:** Removed the "Logout all devices" button from the login/register `AuthPanel` and stopped passing the `onLogoutAll` handler from the unauthenticated app view so the logout control is shown only when signed in (`frontend/src/components/auth/AuthPanel.tsx`, `frontend/src/App.tsx`).
+    - **Tests:** Ran the frontend test suite (`npx vitest run`) — all frontend tests passed (6 tests).
+    - **Auth behavior confirmed:** Verified `getValidAccessToken()` refresh logic in `frontend/src/api.ts` behaves as expected: deleting only `access_token` triggers the refresh flow (like expiry) and does not force logout unless `refresh_token` is missing or refresh fails. No code change required.
+    - **Todo tracking:** Updated local todo status to reflect the UI fix and test verification.
+    - **Backend work (today):** Significant backend changes and integrations were completed and validated in the development environment (venv). Key items implemented or refined today include:
+      - **Tooling & validation:** Implemented the JSON manifest schema and a strict manifest validator to enforce tool contracts for deterministic tool invocation (`backend/modules/tools/manifest_schema.py`, `backend/modules/tools/validator.py`).
+      - **Deterministic tool engine:** Built the `ToolEngine` to register tools, validate args, and run pre-invoke hooks with audit logging for every tool call (`backend/modules/tools/engine.py`).
+      - **Read-only SQL tool:** Added a safe read-only SQLite query tool and manifest that only permits `SELECT` statements (`backend/modules/tools/sql_read_only.py`).
+      - **Sample tools:** Added ticket-focused sample tools (get/list/search/count) wired to the SQLite sample DB and registered their manifests with the engine (`backend/modules/tools/sample_tools.py`).
+      - **Framing & middleware:** Added `frame_user_data()` and middleware to enforce framed user input to defend against prompt-injection when passing user text to LLMs (`backend/modules/tools/framing.py`, `backend/modules/tools/invoke_middleware.py`).
+      - **Pre-invoke hooks & policies:** Added hook infrastructure and built-in hooks (rate-limiter, role-check factories) and wired a per-tool JWT role-check hook at startup to enforce least-privilege tool access (`backend/modules/tools/hooks_builtin.py`).
+      - **State & auth integration:** Wired role-store and per-user role checks into the SQLite state store; confirmed auth manager integration for token-based identity in tool invocations (`backend/modules/state/sqlite_store.py`, `backend/modules/auth/security.py`).
+      - **Audit & retention:** Implemented audit event recording and pruning behavior (30-day retention) for tool invocations and interactions (`backend/modules/tools/audit.py`).
+      - **Agentic logic integration:** Updated `agentic_logic.py` to frame user data before LLM calls and invoke tools via the deterministic engine when required, improving safety and traceability.
+      - **Tests:** Added/updated unit and integration tests covering manifest validation, engine invoke flow, hooks, read-only SQL tool behavior, and framing.
+
 - **Date:** 2026-05-22
   - **Summary:** Improved frontend session-expiry testability and fixed the end-to-end session-expiry flow. Replaced inline DOM notification with a React-managed `Toast`, exported a testable subscription helper from the session notifier, added deterministic unit and DOM tests, installed `jsdom` for the test environment, and verified all frontend tests pass locally.
   - **Completed:**
