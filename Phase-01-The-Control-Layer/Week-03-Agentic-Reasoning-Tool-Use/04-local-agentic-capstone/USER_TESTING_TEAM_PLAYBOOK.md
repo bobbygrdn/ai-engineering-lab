@@ -4,22 +4,27 @@ This document is internal-only and should not be shared directly with participan
 
 ## Goal
 
-Validate that users can complete the core authenticated support flow end-to-end:
+Validate that users can complete the core authenticated support flow end-to-end and understand the newer conversation-centric UI:
 
 1. Register/login
 2. Submit a support message
 3. Receive streaming response
-4. Understand session-health status and session-expiry behavior
-5. Recover from auth/session failures
+4. Switch between conversations in the fixed sidebar
+5. Rename and delete conversations safely
+6. Recover from auth/session failures
+7. Understand the admin-only debug drawer behavior
 
 ## Scope
 
 In scope:
 
 - Frontend auth UX and messaging
-- Session-health badge behavior
+- Brighter auth screen and simplified auth header
+- Fixed sidebar layout and scroll behavior
+- Conversation history loading, rename, delete, and active highlight behavior
 - Streaming request flow (`/api/handle`)
 - Logout-all flow
+- Admin-only debug drawer visibility
 
 Out of scope:
 
@@ -59,6 +64,7 @@ Target 5-8 participants:
 - 2-3 technical users
 - 2-3 non-technical users
 - Optional 1-2 mixed-role stakeholders
+- At least 1 participant with admin access to verify debug drawer visibility
 
 ## Facilitator Checklist
 
@@ -74,6 +80,7 @@ During session:
 - [ ] Do not assist unless participant is blocked >60s
 - [ ] Capture exact confusion points and wording
 - [ ] Record any console/network/backend errors
+- [ ] Verify admin-only debug drawer behavior with a role-bearing account
 
 After session:
 
@@ -85,19 +92,22 @@ After session:
 
 Use this table per participant:
 
-| Participant | Task                         | Completed (Y/N) | Time (s) | Errors Observed | User Confusion Notes |
-| ----------- | ---------------------------- | --------------- | -------: | --------------- | -------------------- |
-| P1          | Register                     |                 |          |                 |                      |
-| P1          | Login                        |                 |          |                 |                      |
-| P1          | Stream response              |                 |          |                 |                      |
-| P1          | Session badge interpretation |                 |          |                 |                      |
-| P1          | Session-expiry recovery      |                 |          |                 |                      |
-| P1          | Logout-all validation        |                 |          |                 |                      |
+| Participant | Task                        | Completed (Y/N) | Time (s) | Errors Observed | User Confusion Notes |
+| ----------- | --------------------------- | --------------- | -------: | --------------- | -------------------- |
+| P1          | Register                    |                 |          |                 |                      |
+| P1          | Login                       |                 |          |                 |                      |
+| P1          | Stream response             |                 |          |                 |                      |
+| P1          | Open a prior conversation   |                 |          |                 |                      |
+| P1          | Rename a conversation       |                 |          |                 |                      |
+| P1          | Delete a conversation       |                 |          |                 |                      |
+| P1          | Identify admin debug drawer |                 |          |                 |                      |
+| P1          | Session-expiry recovery     |                 |          |                 |                      |
+| P1          | Logout-all validation       |                 |          |                 |                      |
 
 Satisfaction quick score:
 
-- "How confident are you that you can recover if your session expires?" (1-5)
-- "How clear was the session badge?" (1-5)
+- "How easy was it to understand the conversation sidebar?" (1-5)
+- "How easy was it to manage conversations (switch/rename/delete)?" (1-5)
 - "How easy was the overall flow?" (1-5)
 
 ## Severity Rubric
@@ -114,7 +124,8 @@ Recommend passing this phase when all are true:
 - > =90% task completion on core flow (register/login/submit/recover)
 - 0 critical auth/session-flow defects
 - 0 unrecoverable UI states
-- Session failure messaging understood by >=80% participants
+- Admin-only debug drawer is hidden for non-admins and visible for admins
+- Conversation switching/rename/delete is understood by >=80% participants
 - Average ease score >=4/5
 
 ## Issue Report Format
@@ -142,3 +153,9 @@ cd backend
 ```
 
 Then repeat 1-2 participant smoke sessions.
+
+## Current UI Notes
+
+- The sidebar is fixed on desktop and the conversation list scrolls inside it.
+- The auth screen is intentionally minimal: branded header, form, and errors only.
+- The debug drawer should not render at all unless the authenticated user has the `admin` role.
