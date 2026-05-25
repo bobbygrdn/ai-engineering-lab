@@ -116,6 +116,26 @@ class SQLiteStateStore:
                     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
                 );
 
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id TEXT PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    title TEXT,
+                    created_at TEXT NOT NULL,
+                    last_updated TEXT NOT NULL,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
+
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    event_type TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    ip_address TEXT,
+                    user_agent TEXT,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
                 CREATE INDEX IF NOT EXISTS idx_messages_user_created ON messages(user_id, created_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_memories_user_type ON memories(user_id, type);
@@ -267,6 +287,12 @@ class SQLiteStateStore:
                 """,
                 (user_id, session_id, role, content, int(token_count), _now_iso()),
             )
+            # update session last_updated if session exists
+            if session_id:
+                conn.execute(
+                    "UPDATE sessions SET last_updated = ? WHERE id = ? AND user_id = ?",
+                    (_now_iso(), session_id, user_id),
+                )
 
     def get_recent_messages(self, user_id: int, limit: int = 12) -> List[Dict[str, Any]]:
         with self._connect() as conn:
@@ -309,6 +335,54 @@ class SQLiteStateStore:
                 )
             )
         return result
+
+    def create_session(self, user_id: int, session_id: str, title: Optional[str] = None) -> None:
+        now = _now_iso()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT OR REPLACE INTO sessions (id, user_id, title, created_at, last_updated) VALUES (?, ?, ?, ?, ?)",
+                (session_id, user_id, title or '', now, now),
+            )
+
+    def update_session_title(self, user_id: int, session_id: str, title: str) -> bool:
+        now = _now_iso()
+        with self._connect() as conn:
+            cur = conn.execute(
+                "UPDATE sessions SET title = ?, last_updated = ? WHERE id = ? AND user_id = ?",
+                (title, now, session_id, user_id),
+            )
+            return cur.rowcount > 0
+
+    def list_sessions(self, user_id: int, limit: int = 100) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT id, title, created_at, last_updated FROM sessions WHERE user_id = ? ORDER BY last_updated DESC LIMIT ?",
+                (user_id, limit),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_messages_by_session(self, user_id: int, session_id: str, limit: int = 1000) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT role, content, token_count, created_at FROM messages WHERE user_id = ? AND session_id = ? ORDER BY id ASC LIMIT ?",
+                (user_id, session_id, limit),
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def delete_session(self, user_id: int, session_id: str) -> bool:
+        with self._connect() as conn:
+            # delete messages associated with session first
+            conn.execute("DELETE FROM messages WHERE user_id = ? AND session_id = ?", (user_id, session_id))
+            cur = conn.execute("DELETE FROM sessions WHERE id = ? AND user_id = ?", (session_id, user_id))
+            return cur.rowcount > 0
+
+    def add_audit_log(self, user_id: int | None, event_type: str, payload: Dict[str, Any], ip_address: Optional[str] = None, user_agent: Optional[str] = None) -> None:
+        now = _now_iso()
+        with self._connect() as conn:
+            conn.execute(
+                "INSERT INTO audit_logs (user_id, event_type, payload_json, ip_address, user_agent, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+                (user_id, event_type, json.dumps(payload, ensure_ascii=False), ip_address, user_agent, now),
+            )
 
     def add_memory(
         self,

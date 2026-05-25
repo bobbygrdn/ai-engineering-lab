@@ -23,7 +23,8 @@ from modules.schemas.type_safety import (
 )
 from modules.state import SQLiteStateStore
 from modules.utils.helpers import log_invalid_output
-from pydantic import ValidationError
+from pydantic import ValidationError, BaseModel
+from fastapi import Body
 from modules.tools.engine import engine as tool_engine
 from modules.tools.sql_read_only import SQL_READ_ONLY_MANIFEST, read_only_query_tool
 from modules.tools.sample_tools import (
@@ -35,9 +36,16 @@ from modules.tools.sample_tools import (
     search_tickets_keyword,
     COUNT_OPEN_BY_DEPT_MANIFEST,
     count_open_by_department,
+    CREATE_TICKET_MANIFEST,
+    create_ticket,
+    UPDATE_STATUS_MANIFEST,
+    update_ticket_status,
+    ADD_NOTE_MANIFEST,
+    add_ticket_note,
 )
 from modules.tools.hooks_builtin import rate_limit_hook_factory
 from modules.tools.hooks_builtin import role_check_state_store_factory, role_check_token_per_tool_factory
+from modules.logic.agentic_react import run_react_session
 
 app = FastAPI()
 
@@ -56,6 +64,9 @@ try:
         (LIST_BY_STATUS_MANIFEST, list_tickets_by_status),
         (SEARCH_KEYWORD_MANIFEST, search_tickets_keyword),
         (COUNT_OPEN_BY_DEPT_MANIFEST, count_open_by_department),
+        (CREATE_TICKET_MANIFEST, create_ticket),
+        (UPDATE_STATUS_MANIFEST, update_ticket_status),
+        (ADD_NOTE_MANIFEST, add_ticket_note),
     ]:
         tool_engine.register_tool(m, fn)
         # register per-manifest role-check hook if manifest expresses allowed_roles
@@ -288,6 +299,15 @@ def logout_all(request: Request, current_user: UserProfile = Depends(get_current
     )
     return {"status": "ok"}
 
+
+@app.get("/api/auth/me")
+def me(current_user: UserProfile = Depends(get_current_user)):
+    try:
+        roles = state_store.get_roles_for_user_id(current_user.id)
+    except Exception:
+        roles = []
+    return {"user": current_user, "roles": roles}
+
 @app.post("/api/classify")
 def classify(request: ClassifyRequest):
     try:
@@ -335,6 +355,30 @@ def handle(request: ClassifyRequest, http_request: Request, current_user: UserPr
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
+@app.post("/api/agentic")
+def agentic(request: ClassifyRequest, http_request: Request, current_user: UserProfile = Depends(get_current_user)):
+    def event_generator():
+        try:
+            for event in run_react_session(
+                request.email_text,
+                user_id=current_user.id,
+                request_meta=_request_meta(http_request),
+                tool_engine=tool_engine,
+                state_store=state_store,
+                auth_manager=auth_manager,
+            ):
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            try:
+                log_invalid_output(request.email_text, None, f"Agentic streaming error: {str(e)}")
+            except Exception as log_error:
+                print(f"Logging error: {log_error}")
+
+            yield f"data: {json.dumps({'type': 'error', 'data': {'message': str(e)}})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
 @app.get("/api/interactions")
 def interactions(
     event_type: str | None = None,
@@ -349,3 +393,104 @@ def interactions(
             limit=safe_limit,
         )
     }
+
+
+@app.get("/api/messages")
+def messages(limit: int = 200, session_id: str | None = None, current_user: UserProfile = Depends(get_current_user)):
+    safe_limit = max(1, min(limit, 2000))
+    if session_id:
+        msgs = state_store.get_messages_by_session(user_id=current_user.id, session_id=session_id, limit=safe_limit)
+    else:
+        msgs = state_store.get_recent_messages(user_id=current_user.id, limit=safe_limit)
+    return {"items": msgs}
+
+
+class MessageCreate(BaseModel):
+    session_id: str | None = None
+    role: str
+    content: str
+    token_count: int | None = 0
+
+
+@app.post("/api/messages")
+def post_message(payload: MessageCreate, current_user: UserProfile = Depends(get_current_user)):
+    try:
+        m = state_store.add_message(
+            user_id=current_user.id,
+            role=payload.role,
+            content=payload.content,
+            token_count=payload.token_count or 0,
+            session_id=payload.session_id,
+        )
+        return {"status": "ok", "message_id": m}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/sessions")
+def create_session(payload: dict = Body(None), current_user: UserProfile = Depends(get_current_user)):
+    import uuid
+    sid = str(uuid.uuid4())
+    title = None
+    try:
+        if payload and isinstance(payload, dict):
+            title = payload.get('title')
+        state_store.create_session(user_id=current_user.id, session_id=sid, title=title)
+        return {"status": "ok", "session_id": sid}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class SessionUpdate(BaseModel):
+    title: str
+
+
+@app.patch("/api/sessions/{session_id}")
+def update_session_title(session_id: str, payload: SessionUpdate, current_user: UserProfile = Depends(get_current_user)):
+    try:
+        updated = state_store.update_session_title(user_id=current_user.id, session_id=session_id, title=payload.title)
+        if not updated:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {"status": "ok"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/sessions")
+def list_sessions(limit: int = 100, current_user: UserProfile = Depends(get_current_user)):
+    safe_limit = max(1, min(limit, 1000))
+    try:
+        items = state_store.list_sessions(user_id=current_user.id, limit=safe_limit)
+        return {"items": items}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/api/sessions/{session_id}")
+def delete_session(session_id: str, request: Request, current_user: UserProfile = Depends(get_current_user)):
+    try:
+        # attempt deletion
+        deleted = state_store.delete_session(user_id=current_user.id, session_id=session_id)
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # audit log the deletion for traceability
+        try:
+            state_store.add_audit_log(
+                user_id=current_user.id,
+                event_type="session_deleted",
+                payload={"session_id": session_id},
+                ip_address=_request_meta(request).get("ip_address"),
+                user_agent=_request_meta(request).get("user_agent"),
+            )
+        except Exception:
+            # non-fatal: don't prevent deletion if audit logging fails
+            pass
+
+        return {"status": "ok"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -337,9 +337,19 @@ def extract_patches_from_text(text: str) -> List[Dict[str, Any]]:
     except Exception:
         pass
 
+    cleaned = text
+    if "PATCHES:" in cleaned:
+        cleaned = cleaned.split("PATCHES:", 1)[1].strip()
+
+    cleaned = cleaned.lstrip()
+    if cleaned.startswith("["):
+        search_order = ("[", "{")
+    else:
+        search_order = ("{", "[")
+
     idx = None
-    for ch in ("[", "{"):
-        p = text.find(ch)
+    for ch in search_order:
+        p = cleaned.find(ch)
         if p != -1:
             idx = p
             break
@@ -350,7 +360,7 @@ def extract_patches_from_text(text: str) -> List[Dict[str, Any]]:
             pass
         raise ValueError("No JSON found in response")
     try:
-        payload = json.loads(text[idx:])
+        payload = json.loads(cleaned[idx:])
     except Exception as e:
         try:
             record_event("writeback_parse_failed", {"error": str(e)[:500]})
