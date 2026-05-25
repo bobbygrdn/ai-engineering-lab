@@ -51,6 +51,10 @@ export default function AuthPanel({ onRegister, onLogin, error }: Props) {
   return (
     <div className="auth-page">
       <div className="auth-card">
+        <div className="auth-header">
+          <div className="auth-brand">Agent Chat</div>
+          <div className="auth-title">{tab === 'login' ? 'Sign in' : 'Create account'}</div>
+        </div>
         <div className="tabs">
           <button className={`tab ${tab === 'login' ? 'active' : ''}`} onClick={() => setTab('login')}>Login</button>
           <button className={`tab ${tab === 'register' ? 'active' : ''}`} onClick={() => setTab('register')}>Register</button>

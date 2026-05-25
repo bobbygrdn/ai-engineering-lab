@@ -35,8 +35,10 @@ describe('session health badge', () => {
 
     render(<App />)
 
-    expect(await screen.findByText(/Signed in as/i)).toBeInTheDocument()
-    const badge = await screen.findByLabelText('session-health')
-    expect(badge).toHaveTextContent('Session: Healthy')
+    expect(await screen.findByText('tester')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: 'Log out' })).toBeInTheDocument()
+    // session health UI removed — ensure badge is not visible
+    const badge = screen.queryByLabelText('session-health')
+    expect(badge).toBeNull()
   })
 })

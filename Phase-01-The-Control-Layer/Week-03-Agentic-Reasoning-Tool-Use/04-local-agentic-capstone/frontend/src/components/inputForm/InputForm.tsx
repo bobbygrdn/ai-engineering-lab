@@ -26,7 +26,7 @@ const InputForm: React.FC<InputFormProps> = ({ onSubmit, isLoading }) => {
           onChange={(e) => setEmailText(e.target.value)}
           placeholder="Enter your support email text here..."
           disabled={isLoading}
-          rows={6}
+          rows={2}
           className="email-textarea"
         />
         <button 
