@@ -1,5 +1,5 @@
 import './App.css'
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { streamHandleEmail, register, login, logoutAll, getValidAccessToken } from './api';
 import InputForm from './components/inputForm/InputForm';
 import OutputDisplay from './components/outputDisplay/OutputDisplay';
@@ -41,18 +41,6 @@ function makeId() {
   return `${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
-function summarizeCompletedResponse(response: unknown) {
-  if (!response || typeof response !== 'object') return 'Completed response'
-  const payload = response as CompletedResponse
-  const parts: string[] = []
-  if (payload.intent) parts.push(String(payload.intent).toUpperCase())
-  const duration = payload.metadata?.total_duration
-  if (typeof duration === 'number') parts.push(`${duration.toFixed(2)}s`)
-  const tokens = payload.metadata?.usage?.total_tokens
-  if (typeof tokens === 'number') parts.push(`${tokens} tokens`)
-  return parts.length ? parts.join(' • ') : 'Completed response'
-}
-
 const MAX_SESSION_TITLE_LENGTH = 24
 
 function formatSessionTitle(title: string | null | undefined, createdAt: string) {
@@ -78,21 +66,6 @@ function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false)
 
-  const activeTurn = useMemo(() => turns[0] ?? null, [turns])
-
-  const mapStatusLabel = (s: TurnSummary['status']) => {
-    switch (s) {
-      case 'streaming':
-        return 'In progress'
-      case 'done':
-        return 'Ready'
-      case 'error':
-        return 'Unavailable'
-      default:
-        return s
-    }
-  }
-
   const clearConversation = () => {
     setStreamingText('')
     setCompletedResponse(null)
@@ -112,7 +85,7 @@ function App() {
       if (!resp.ok) return
       const body = await resp.json()
       setSessions(body.items || [])
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
@@ -126,12 +99,12 @@ function App() {
     if (!resp.ok) return null
     const body = await resp.json()
     const items = body?.items || []
-    return items.map((m: any, idx: number) => ({
+    return items.map((m: { role?: string; content?: string }, idx: number): ChatMessage => ({
       id: `${sessionId}-${idx}-${m.role}`,
       role: m.role === 'assistant' ? 'assistant' : 'user',
-      content: m.content,
+      content: m.content || '',
       status: 'final' as const,
-    })) as ChatMessage[]
+    }))
   }
 
   const storeConversationMessages = (sessionId: string, nextMessages: ChatMessage[]) => {
@@ -154,6 +127,7 @@ function App() {
           if (resp.ok) {
             const body = await resp.json()
             sid = body.session_id
+            if (!sid) return
             createdSession = true
             setCurrentSessionId(sid)
             localStorage.setItem('session_id', sid)
@@ -169,6 +143,7 @@ function App() {
 
     const turnId = makeId()
     const assistantId = `${turnId}-assistant`
+    let assistantText = ''
 
     const userMessage: ChatMessage = { id: `${turnId}-user`, role: 'user', content: trimmed }
     const assistantMessage: ChatMessage = { id: assistantId, role: 'assistant', content: 'Thinking...', status: 'streaming' }
@@ -186,12 +161,12 @@ function App() {
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ session_id: sid, role: 'user', content: trimmed, token_count: 0 }),
         })
-      } catch (e) {
+      } catch {
         // ignore persistence errors
       }
     })()
     setTurns((prev) => [
-      { id: turnId, prompt: trimmed.slice(0, 96), status: 'streaming', updatedAt: Date.now() },
+      { id: turnId, prompt: trimmed.slice(0, 96), status: 'streaming' as const, updatedAt: Date.now() },
       ...prev,
     ].slice(0, 8))
     setStreamingText('');
@@ -202,6 +177,7 @@ function App() {
     await streamHandleEmail(
       trimmed,
       (delta) => {
+        assistantText += delta
         setStreamingText((prev) => prev + delta);
         setMessages((prev) => prev.map((message) => (
           message.id === assistantId
@@ -226,22 +202,35 @@ function App() {
         setCompletedResponse(response as CompletedResponse);
         setMessages((prev) => prev.map((message) => (
           message.id === assistantId
-            ? { ...message, content: streamingText || message.content, status: 'final' }
+            ? { ...message, content: assistantText || message.content, status: 'final' as const }
             : message
         )))
         setArchives((prev) => {
           const copy = { ...prev }
           const a = copy[sid!]
           if (a) {
-            const updated = a.map((message) => (
+            const updated = a.map((message): ChatMessage => (
               message.id === assistantId
-                ? { ...message, content: streamingText || message.content, status: 'final' }
+                ? { ...message, content: assistantText || message.content, status: 'final' as const }
                 : message
             ))
             copy[sid!] = updated
           }
           return copy
         })
+        ;(async () => {
+          try {
+            const token = await getValidAccessToken()
+            if (!token) return
+            await fetch('http://localhost:8000/api/messages', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({ session_id: sid, role: 'assistant', content: assistantText || '', token_count: 0 }),
+            })
+          } catch {
+            // ignore persistence errors
+          }
+        })()
         setTurns((prev) => prev.map((turn) => (
           turn.id === turnId
             ? { ...turn, status: 'done', updatedAt: Date.now() }
@@ -265,9 +254,9 @@ function App() {
             await fetch('http://localhost:8000/api/messages', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-              body: JSON.stringify({ session_id: sid, role: 'assistant', content: streamingText || '', token_count: 0 }),
+              body: JSON.stringify({ session_id: sid, role: 'assistant', content: assistantText || '', token_count: 0 }),
             })
-          } catch (e) {
+          } catch {
             // ignore
           }
         })()
@@ -281,7 +270,7 @@ function App() {
               headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
               body: JSON.stringify({ session_id: sid, role: 'assistant', content: errorMsg, token_count: 0 }),
             })
-          } catch (e) {
+          } catch {
             // ignore
           }
         })()
@@ -302,7 +291,7 @@ function App() {
         storeConversationMessages(turnId, fromServer)
         return
       }
-    } catch (e) {
+    } catch {
       // ignore and fall back to local data
     }
 
@@ -386,10 +375,10 @@ function App() {
   useEffect(() => {
     try {
       const el = transcriptEndRef.current as unknown as HTMLElement | null
-      if (el && typeof (el as any).scrollIntoView === 'function') {
+      if (el && typeof el.scrollIntoView === 'function') {
         el.scrollIntoView({ behavior: 'smooth', block: 'end' })
       }
-    } catch (e) {
+    } catch {
       // scrollIntoView may not be implemented in the test DOM (jsdom); ignore safely
     }
   }, [messages, streamingText, isLoading])
@@ -412,7 +401,7 @@ function App() {
         const body = await resp.json()
         const roles = body?.roles || []
         if (!cancelled) setIsAdmin(Array.isArray(roles) && roles.includes('admin'))
-      } catch (e) {
+      } catch {
         if (!cancelled) setIsAdmin(false)
       }
     }
@@ -431,7 +420,7 @@ function App() {
         if (!resp.ok) return
         const body = await resp.json()
         if (!cancelled) setSessions(body.items || [])
-      } catch (e) {
+      } catch {
         // ignore
       }
     }
@@ -449,7 +438,7 @@ function App() {
       if (resp.ok) {
         await refreshSessions()
       }
-    } catch (e) {
+    } catch {
       // ignore
     }
   }
@@ -476,7 +465,7 @@ function App() {
         }
         await refreshSessions()
       }
-    } catch (e) {
+    } catch {
       // ignore
     } finally {
       setShowDeleteModal(false)
