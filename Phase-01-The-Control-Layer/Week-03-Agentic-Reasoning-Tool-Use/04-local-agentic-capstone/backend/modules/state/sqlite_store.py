@@ -108,6 +108,15 @@ class SQLiteStateStore:
                     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS metrics (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER,
+                    event_type TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
+                );
+
                 CREATE TABLE IF NOT EXISTS user_roles (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id INTEGER NOT NULL,
@@ -140,6 +149,7 @@ class SQLiteStateStore:
                 CREATE INDEX IF NOT EXISTS idx_messages_user_created ON messages(user_id, created_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_memories_user_type ON memories(user_id, type);
                 CREATE INDEX IF NOT EXISTS idx_interactions_user_event ON interactions(user_id, event_type, created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_metrics_user_event ON metrics(user_id, event_type, created_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_refresh_user_jti ON refresh_tokens(user_id, token_jti);
                 """
             )
@@ -592,6 +602,60 @@ class SQLiteStateStore:
                     _now_iso(),
                 ),
             )
+
+    def record_metric(self, payload: Dict[str, Any], user_id: Optional[int] = None) -> None:
+        event_type = str(payload.get("event_type") or payload.get("stage") or payload.get("metric_type") or "reflection_metric")
+        with self._connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO metrics (user_id, event_type, payload_json, created_at)
+                VALUES (?, ?, ?, ?)
+                """,
+                (
+                    user_id,
+                    event_type,
+                    json.dumps(payload, ensure_ascii=False),
+                    payload.get("ts") or _now_iso(),
+                ),
+            )
+
+    def search_metrics(
+        self,
+        user_id: Optional[int] = None,
+        event_type: Optional[str] = None,
+        limit: int = 200,
+    ) -> List[Dict[str, Any]]:
+        with self._connect() as conn:
+            clauses = []
+            params: List[Any] = []
+            if user_id is not None:
+                clauses.append("user_id = ?")
+                params.append(user_id)
+            if event_type:
+                clauses.append("event_type = ?")
+                params.append(event_type)
+            where_sql = f"WHERE {' AND '.join(clauses)}" if clauses else ""
+            rows = conn.execute(
+                f"""
+                SELECT id, user_id, event_type, payload_json, created_at
+                FROM metrics
+                {where_sql}
+                ORDER BY id DESC
+                LIMIT ?
+                """,
+                (*params, limit),
+            ).fetchall()
+
+        items: List[Dict[str, Any]] = []
+        for row in rows:
+            items.append({
+                "id": int(row["id"]),
+                "user_id": row["user_id"],
+                "event_type": row["event_type"],
+                "payload": json.loads(row["payload_json"]),
+                "created_at": row["created_at"],
+            })
+        return items
 
     def search_interactions(
         self,

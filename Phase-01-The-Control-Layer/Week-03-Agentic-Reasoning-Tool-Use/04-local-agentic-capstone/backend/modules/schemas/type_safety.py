@@ -81,6 +81,7 @@ class ModelInterface:
 
 
 from modules.utils.tokenizer import count_tokens
+import re
 from modules.utils.interactions import record_event
 
 
@@ -495,32 +496,70 @@ class SupportAIService:
             request_meta=request_meta,
         )
 
-        assistant_response_text = ""
-        stream = self.sl_model.infer_response(prompt_text) if intent == "simple" else self.frontier_model.infer_response(prompt_text)
+        from modules.logic.reflection import run_reflection_pipeline
+
+        reflection = run_reflection_pipeline(
+            prompt_text=prompt_text,
+            policy_text=None,
+            max_attempts=3,
+            state_store=self.state_store,
+            user_id=user_id,
+            request_meta=request_meta,
+        )
+
+        policy_review_payload = {
+            "attempts": reflection.attempts,
+            "policy_compliant": reflection.policy_compliant,
+            "reviews": reflection.reviews,
+            "generation_latency": reflection.generation_latency,
+            "critique_latency": reflection.critique_latency,
+            "total_latency": reflection.total_latency,
+        }
+
+        self._log_event("policy_review", policy_review_payload, user_id, request_meta)
+        yield {"type": "policy_review", "data": policy_review_payload}
+
+        assistant_response_text = reflection.final_text or "I’m sorry, but I can’t help with that request."
+
+        def _chunk_text(text: str) -> list[str]:
+            if not text:
+                return []
+            # Preserve the exact original spacing/newlines while still streaming in small pieces.
+            # We split into non-whitespace runs and whitespace runs, then emit them in order.
+            return re.findall(r"\s+|[^\s]+", text)
 
         try:
-            for event in stream:
-                try:
-                    if isinstance(event, dict):
-                        t = event.get("type")
-                        if t == "delta":
-                            d = event.get("data", {}) or {}
-                            txt = d.get("text") if isinstance(d, dict) else None
-                            self._log_event("delta", {"text": (txt or "")[:1000]}, user_id, request_meta)
-                        elif t == "done":
-                            self._log_event("done", {}, user_id, request_meta)
-                        elif t == "completed":
-                            d = event.get("data", {}) or {}
-                            self._log_event(
-                                "completed",
-                                {"response_text": (d.get("response_text") or "")[:1000], "intent": d.get("intent")},
-                                user_id,
-                                request_meta,
-                            )
-                            assistant_response_text = str(d.get("response_text", ""))
-                except Exception:
-                    pass
-                yield event
+            for delta_text in _chunk_text(assistant_response_text):
+                self._log_event("delta", {"text": delta_text[:1000]}, user_id, request_meta)
+                yield {"type": "delta", "data": {"text": delta_text}}
+            self._log_event("done", {}, user_id, request_meta)
+            yield {"type": "done", "data": {}}
+
+            completed_payload = {
+                "intent": intent,
+                "response_text": assistant_response_text,
+                "metadata": {
+                    "total_duration": reflection.total_latency,
+                    "usage": {
+                        "prompt_tokens": int(reflection.usage.get("prompt_tokens", 0) or 0),
+                        "completion_tokens": int(reflection.usage.get("completion_tokens", 0) or 0),
+                        "total_tokens": int(reflection.usage.get("total_tokens", 0) or 0),
+                        "interaction_price": float(reflection.usage.get("interaction_price", 0.0) or 0.0),
+                    },
+                },
+                "policy_review": policy_review_payload,
+            }
+            self._log_event(
+                "completed",
+                {
+                    "response_text": assistant_response_text[:1000],
+                    "intent": intent,
+                    "policy_compliant": reflection.policy_compliant,
+                },
+                user_id,
+                request_meta,
+            )
+            yield {"type": "completed", "data": completed_payload}
         finally:
             if not assistant_response_text:
                 return
