@@ -2,6 +2,19 @@
 
 ## Daily Progress
 
+- **Date:** 2026-05-25
+  - **Summary:** Tightened the conversation workflow, backend reasoning flow, and user-testing docs. Updated the USER_TESTING guides to match the current conversation-first UI, reinforced the ReAct/backend persistence path, fixed live sidebar/session persistence so saved conversations appear immediately, prevented assistant messages from overwriting earlier turns, and added regression coverage for conversation persistence.
+  - **Completed:**
+    - **Backend ReAct flow:** Reinforced the backend ReAct-style reasoning and tool-execution path in `backend/modules/logic/agentic_react.py`, keeping the loop aligned with tool calls, streaming, and write-back behavior.
+    - **Backend persistence:** Kept durable memory and session/message persistence in sync through `backend/modules/memory/durable_memory.py`, `backend/modules/state/sqlite_store.py`, and `backend/app.py`.
+    - **Backend test coverage:** Validated the backend flow with `backend/tests/test_agentic_react.py` and `backend/tests/test_agentic_react_integration.py` so the ReAct path stays covered.
+    - **Backend data flow:** Preserved SQLite-backed message/session ordering and retention so restored conversations and turn history load consistently.
+    - **User testing docs:** Updated `USER_TESTING.md`, `USER_TESTING_PARTICIPANT.md`, and `USER_TESTING_TEAM_PLAYBOOK.md` to reflect the current app flow and admin-only debug surface.
+    - **Conversation persistence:** Refined `frontend/src/App.tsx` so each turn keeps its own assistant message, session lists refresh immediately, and saved conversations load correctly.
+    - **UI polish:** Truncated conversation titles, removed timestamps from conversation cards, and switched rename/delete actions to compact icon buttons with tooltips.
+    - **Regression test:** Added `frontend/src/__tests__/conversationPersistence.test.tsx` to lock in the assistant-message persistence behavior.
+    - **Validation:** Ran the focused frontend Vitest coverage for the new regression test and confirmed it passes.
+
 - **Date:** 2026-05-23
   - **Summary:** Fixed a frontend UI bug and validated session/auth behavior. Removed the "Logout all devices" control from the unauthenticated login/register view, ensured logout remains available only for signed-in users, ran frontend tests, and confirmed token refresh behavior (deleting only `access_token` simulates expiry and does not log the user out while a valid `refresh_token` exists).
   - **Completed:**
