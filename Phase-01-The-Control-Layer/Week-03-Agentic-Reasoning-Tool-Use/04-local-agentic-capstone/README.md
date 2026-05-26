@@ -1,4 +1,117 @@
-# Part 4 Local Agentic Capstone
+# Part 4 — Local Agentic Capstone
+
+A compact, local-first demonstration of an agentic reasoning system built with a streaming backend and a reactive frontend. The project showcases a ReAct-style loop, a critic/responder enforcement pattern, deterministic tool invocation via manifests, durable memory, and end-to-end SSE streaming to a React UI.
+
+## Quick Links
+
+- Backend entrypoint: [backend/app.py](backend/app.py)
+- Frontend app: [frontend/src](frontend/src)
+- Developer guides: [USER_TESTING.md](USER_TESTING.md)
+- Policy source: [backend/policy/company_policy.md](backend/policy/company_policy.md)
+
+## Audience & Purpose
+
+This repository is intended for engineers, researchers, and technical reviewers (including hiring managers and recruiters) who want to inspect, run, and extend a local agentic system that demonstrates key safety patterns, tool-usage determinism, and streaming UX.
+
+## Highlights / Key Features
+
+- Agentic reasoning with a ReAct-style loop and deterministic tool execution.
+- Critic / Responder pattern with a reflection pipeline for policy enforcement and automated remediation.
+- Streaming-first backend (generator-based LLM/event streams) surfaced to the UI via Server-Sent Events (SSE).
+- Durable memory, trimming and recursive compression for long-running conversations.
+- Tool manifest schema, manifest validator, and `ToolEngine` for safe, auditable tool calls.
+- Read-only SQL tool, sample tools, and pre-invoke hooks (rate limiting, role checks).
+- Ground-truth benchmarking utilities and smoke-test harness for end-to-end verification.
+
+## Architecture (high level)
+
+See the `backend/` and `frontend/` folders for implementation details. Key runtime components:
+
+- Frontend: Vite + React UI that connects to the backend SSE endpoints and renders streaming deltas and metadata.
+- Backend: FastAPI service exposing streaming endpoints; model adapters that yield `delta` / `done` / `completed` events; reflection pipeline that performs critique and policy checks; durable state stored in SQLite.
+- Memory: `working_memory`, `durable_memory`, and `recursive_compressor` to trim and summarize conversations.
+- Tools: `modules/tools/*` implements manifest schemas, validators, and engine-run tools with audit logging and hooks.
+
+## Getting Started (run locally)
+
+Prerequisites
+
+- Python 3.10+ (recommended) and Node.js 18+ / npm or yarn
+- An OpenAI-compatible API key if you want to run live LLM-backed flows (set via `OPENAI_API_KEY`).
+
+Backend — install and run
+
+1. Create a Python virtual environment and install dependencies:
+
+```bash
+python -m venv .venv
+source .venv/Scripts/activate   # Windows: .\.venv\Scripts\activate
+pip install -r backend/requirements.txt
+```
+
+2. Export required environment variables (example):
+
+```bash
+set OPENAI_API_KEY=your_api_key_here     # Windows (cmd)
+# or on PowerShell:
+$Env:OPENAI_API_KEY = 'your_api_key_here'
+```
+
+3. Run the backend (FastAPI + Uvicorn):
+
+```bash
+uvicorn backend.app:app --reload --port 8000
+```
+
+Frontend — install and run
+
+1. Install dependencies and start dev server:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+2. Open the Vite dev URL (usually `http://localhost:5173`) to use the UI which connects to the backend SSE endpoints.
+
+Run the smoke test (quick end-to-end sanity)
+
+```bash
+python backend/scripts/smoke_test.py
+```
+
+Testing
+
+- Backend unit tests: from the project root run `pytest -q backend`.
+- Frontend tests: from `frontend/` run `npx vitest run` or `npm test` depending on your setup.
+
+## Design Details (summary)
+
+This section summarizes important patterns implemented in the project. See code in `backend/modules/logic/` and `backend/modules/tools/` for details.
+
+- Agentic reasoning & ReAct loop: The backend implements a ReAct-style controller in `agentic_react.py` where the system alternates between reasoning steps and deterministic tool calls orchestrated by the `ToolEngine` when structured tool manifests indicate external actions are required.
+- Critic / Responder (Reflection pipeline): A reflection flow performs synchronous critique of candidate assistant outputs against `backend/policy/company_policy.md`. The critic can mark responses as non-compliant and suggest corrections; the pipeline supports retries and structured review metadata (compliance flags, scores, issues, latencies).
+- Streaming model interface: Model adapters yield a sequence of events (`delta` chunks, `done`, `completed`) which the backend forwards as SSE to the client, preserving whitespace and chunk fidelity.
+- Tools & Manifests: Tools are registered with manifests and validated before invoke. Pre-invoke hooks enforce role checks and rate limits; all invocations are audited with a configurable retention window.
+- Memory & Compression: Conversation context is maintained in `working_memory` and persisted via `durable_memory` with trimming events and a recursive compression path to summarize older content while preserving important facts.
+
+## Project Structure (high level)
+
+- `backend/` — FastAPI service, model adapters, business logic, tests, scripts
+- `frontend/` — Vite React app, components, and tests
+- `USER_TESTING*.md` — Test plans and playbooks for manual user testing
+
+## Troubleshooting
+
+- If the frontend cannot connect to the backend SSE endpoint, ensure `uvicorn` is running on `:8000` and that dev server CORS settings are permitting the origin.
+- For OpenAI/Responses integration, verify the `OPENAI_API_KEY` env var and network connectivity.
+
+## License
+
+This project is released under the MIT License. See [LICENSE](LICENSE).
+
+---
 
 ## Daily Progress
 
