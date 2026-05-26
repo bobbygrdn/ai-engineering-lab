@@ -22,6 +22,22 @@ type TurnSummary = {
 
 type CompletedResponse = {
   intent?: string
+  policy_review?: {
+    attempts?: number
+    policy_compliant?: boolean
+    reviews?: Array<{
+      attempt?: number
+      compliant?: boolean
+      score?: number
+      issues?: string[]
+      correction_instructions?: string
+      generation_latency?: number
+      critique_latency?: number
+    }>
+    generation_latency?: number
+    critique_latency?: number
+    total_latency?: number
+  }
   metadata?: {
     total_duration?: number
     usage?: {
@@ -53,6 +69,7 @@ function formatSessionTitle(title: string | null | undefined, createdAt: string)
 function App() {
   const [streamingText, setStreamingText] = useState('');
   const [completedResponse, setCompletedResponse] = useState<CompletedResponse | null>(null);
+  const [policyReview, setPolicyReview] = useState<CompletedResponse['policy_review'] | null>(null)
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([])
@@ -69,6 +86,7 @@ function App() {
   const clearConversation = () => {
     setStreamingText('')
     setCompletedResponse(null)
+    setPolicyReview(null)
     setError('')
     setIsLoading(false)
     setMessages([])
@@ -200,6 +218,7 @@ function App() {
       },
       (response) => {
         setCompletedResponse(response as CompletedResponse);
+        setPolicyReview((response as CompletedResponse)?.policy_review || null)
         setMessages((prev) => prev.map((message) => (
           message.id === assistantId
             ? { ...message, content: assistantText || message.content, status: 'final' as const }
@@ -275,6 +294,11 @@ function App() {
           }
         })()
         void refreshSessions()
+      },
+      (status) => {
+        if (status && typeof status === 'object') {
+          setPolicyReview(status as CompletedResponse['policy_review'])
+        }
       }
     );
 
@@ -573,6 +597,7 @@ function App() {
                     completedResponse={completedResponse}
                     error={error}
                     isStreaming={isLoading}
+                    policyReview={policyReview}
                   />
                 </details>
               )}

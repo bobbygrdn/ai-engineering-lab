@@ -16,13 +16,25 @@ interface OutputDisplayProps {
   completedResponse: any | null;
   error: string | null;
   isStreaming: boolean;
+  policyReview?: {
+    attempts?: number
+    policy_compliant?: boolean
+    reviews?: Array<{
+      attempt?: number
+      compliant?: boolean
+      score?: number
+      issues?: string[]
+      correction_instructions?: string
+    }>
+  } | null;
 }
 
 const OutputDisplay: React.FC<OutputDisplayProps> = ({ 
   streamingText, 
   completedResponse, 
   error,
-  isStreaming 
+  isStreaming,
+  policyReview
 }) => {
   if (error) {
     return (
@@ -53,6 +65,16 @@ const OutputDisplay: React.FC<OutputDisplayProps> = ({
 
       {completedResponse && (
         <div className="completed-response">
+          {policyReview && (
+            <div className={`policy-review ${policyReview.policy_compliant ? 'policy-pass' : 'policy-warn'}`}>
+              <span className="label">Policy review:</span>
+              <span className="value">
+                {policyReview.policy_compliant ? 'passed' : 'needs correction'}
+                {typeof policyReview.attempts === 'number' ? ` after ${policyReview.attempts} pass${policyReview.attempts === 1 ? '' : 'es'}` : ''}
+              </span>
+            </div>
+          )}
+
           <div className="intent-badge">
             Intent: <span className={`intent-${completedResponse.intent}`}>
               {completedResponse.intent.toUpperCase()}

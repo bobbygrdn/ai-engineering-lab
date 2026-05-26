@@ -146,6 +146,35 @@
   font-size: 0.9rem;
 }
 
+.policy-review {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.policy-review .label {
+  opacity: 0.75;
+}
+
+.policy-review .value {
+  font-weight: 800;
+}
+
+.policy-pass {
+  background-color: #e7f8f2;
+  color: #0f766e;
+}
+
+.policy-warn {
+  background-color: #fff4db;
+  color: #92400e;
+}
+
 .metadata-section h4 {
   margin-top: 0;
   color: #555;

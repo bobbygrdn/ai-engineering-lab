@@ -143,7 +143,8 @@ export async function streamHandleEmail(
     emailText: string,
     onDelta: (text: string) => void,
     onComplete: (response: unknown) => void,
-    onError: (error: string) => void
+    onError: (error: string) => void,
+    onStatus?: (status: unknown) => void
 ) {
     try {
         const token = await getValidAccessToken()
@@ -210,7 +211,10 @@ export async function streamHandleEmail(
                                 onDelta(json.data.text);
                             } else if (json.type === 'done') {
                                 // Text streaming complete, response still coming
+                            } else if (json.type === 'policy_review') {
+                                if (onStatus) onStatus(json.data)
                             } else if (json.type === 'completed') {
+                                if (onStatus && json.data?.policy_review) onStatus(json.data.policy_review)
                                 onComplete(json.data);
                             } else if (json.type === 'error') {
                                 onError(json.data.message);
@@ -231,9 +235,12 @@ export async function streamHandleEmail(
                     try {
                         const json = JSON.parse(line.slice(6));
                         if (json.type === 'completed') {
+                            if (onStatus && json.data?.policy_review) onStatus(json.data.policy_review)
                             onComplete(json.data);
                         } else if (json.type === 'delta') {
                             onDelta(json.data.text);
+                        } else if (json.type === 'policy_review') {
+                            if (onStatus) onStatus(json.data)
                         } else if (json.type === 'error') {
                             onError(json.data.message);
                         }
