@@ -2,6 +2,23 @@
 
 ## Daily Progress
 
+- **Date:** 2026-05-26
+  - **Summary:** Implemented and integrated a Reflection & Critic policy-enforcement loop across backend streaming, metrics, and UI status surfaces; fixed streaming whitespace fidelity so rendered output preserves original formatting; added targeted tests and a smoke-test harness; and mitigated a reported policy incident by enforcing a critic-side block on unverified contact details.
+  - **Completed:**
+    - **Reflection pipeline:** Added a dedicated generation + critique loop with retry/self-correction behavior in `backend/modules/logic/reflection.py` (up to 3 attempts), returning structured review metadata (compliance, score, issues, correction instructions, latencies, and usage).
+    - **Company policy source:** Added `backend/policy/company_policy.md` as the canonical policy input for critique and enforcement.
+    - **Metrics integration:** Extended metric recording in `backend/modules/utils/metrics.py` and persistent metric storage/search in `backend/modules/state/sqlite_store.py` (including `metrics` table support) so latency, error-rate, and policy-compliance signals are persisted.
+    - **Streaming integration:** Updated `SupportAIService` in `backend/modules/schemas/type_safety.py` to run the reflection pipeline, emit `policy_review` status before deltas, stream response chunks, and persist assistant outputs/write-back patches.
+    - **Streaming fidelity fix:** Replaced whitespace-losing chunk splitting with whitespace-preserving chunking so UI rendering keeps original spacing/newlines and no longer merges words during stream playback.
+    - **Frontend SSE/status handling:** Updated `frontend/src/api.ts` to parse SSE robustly and surface `policy_review` status callbacks; updated `frontend/src/App.tsx` to append streaming deltas correctly and persist final assistant text on completion.
+    - **Policy review UI badge:** Updated `frontend/src/components/outputDisplay/OutputDisplay.tsx` (with corresponding styles) to display policy review status/compliance in the output surface.
+    - **Reflection tests:** Added and updated backend tests for the reflection flow and integrations, including `backend/tests/test_reflection_pattern.py`, `backend/tests/test_stateful_user_flow.py`, and `backend/tests/test_working_memory.py`.
+    - **Frontend regression test:** Added `frontend/src/__tests__/policyReviewBadge.test.tsx` to verify policy-review indicator rendering.
+    - **Smoke test harness:** Added `backend/scripts/smoke_test.py` to exercise end-to-end streaming/persistence behavior against a temporary DB and verify emitted events and stored records.
+    - **Policy incident mitigation:** After a reported potentially non-compliant assistant message, tightened enforcement by adding an automated critic rule that flags unverified contact details (email/phone) as non-compliant in `backend/modules/logic/reflection.py` and documented this rule in `backend/policy/company_policy.md`.
+    - **Recurrence prevention test:** Added `backend/tests/test_reflection_critic_contact_details.py` to ensure unverified contact details are blocked even if an LLM critic response is overly permissive.
+    - **Validation:** Verified backend tests pass after these changes (latest run: 61 passed).
+
 - **Date:** 2026-05-25
   - **Summary:** Tightened the conversation workflow, backend reasoning flow, and user-testing docs. Updated the USER_TESTING guides to match the current conversation-first UI, reinforced the ReAct/backend persistence path, fixed live sidebar/session persistence so saved conversations appear immediately, prevented assistant messages from overwriting earlier turns, and added regression coverage for conversation persistence.
   - **Completed:**
