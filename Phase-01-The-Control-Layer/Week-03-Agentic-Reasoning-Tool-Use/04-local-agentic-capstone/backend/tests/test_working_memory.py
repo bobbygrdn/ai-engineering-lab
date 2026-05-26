@@ -63,7 +63,29 @@ def test_support_ai_service_uses_conversation_memory(tmp_path, monkeypatch):
             },
         }
 
-    monkeypatch.setattr(service.sl_model, "infer_response", fake_stream)
+    import modules.logic.reflection as reflection_mod
+
+    class FakeReflectionResult:
+        def __init__(self, text: str):
+            self.final_text = text
+            self.policy_compliant = True
+            self.attempts = 1
+            self.generation_latency = 0.01
+            self.critique_latency = 0.0
+            self.total_latency = 0.01
+            self.reviews = []
+            self.usage = {
+                "prompt_tokens": 1,
+                "completion_tokens": 1,
+                "total_tokens": 2,
+                "interaction_price": 0.0,
+            }
+
+    def fake_run_reflection(prompt_text: str, **kwargs):
+        captured_prompts.append(prompt_text)
+        return FakeReflectionResult("Thanks for the update.")
+
+    monkeypatch.setattr(reflection_mod, "run_reflection_pipeline", fake_run_reflection)
 
     first_events = list(service.handle_ticket("Please check my account status."))
     assert any(event["type"] == "completed" for event in first_events)

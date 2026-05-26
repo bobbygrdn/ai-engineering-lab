@@ -71,7 +71,38 @@ def test_multi_step_stateful_flow_with_recall(tmp_path, monkeypatch):
             },
         }
 
-    monkeypatch.setattr(app_module.ai_service.sl_model, "infer_response", fake_stream)
+    import modules.logic.reflection as reflection_mod
+
+    class FakeReflectionResult:
+        def __init__(self, text: str):
+            self.final_text = text
+            self.policy_compliant = True
+            self.attempts = 1
+            self.generation_latency = 0.01
+            self.critique_latency = 0.0
+            self.total_latency = 0.01
+            self.reviews = []
+            self.usage = {
+                "prompt_tokens": 1,
+                "completion_tokens": 1,
+                "total_tokens": 2,
+                "interaction_price": 0.0,
+            }
+
+    def fake_run_reflection(prompt_text: str, **kwargs):
+        captured_prompts.append(prompt_text)
+        if len(captured_prompts) == 1:
+            response_text = (
+                "Acknowledged. PATCHES:["
+                '{"op":"upsert","type":"preferences","content":{"communication_preference":"email updates"},"importance":0.9,"token_count":6}'
+                "]"
+            )
+        else:
+            response_text = "You prefer email updates for communication."
+
+        return FakeReflectionResult(response_text)
+
+    monkeypatch.setattr(reflection_mod, "run_reflection_pipeline", fake_run_reflection)
 
     first = client.post(
         "/api/handle",
