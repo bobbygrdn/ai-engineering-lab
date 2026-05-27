@@ -1,0 +1,11 @@
+{
+    "name": "update_email",
+    "description": "Update the email address associated with your account.",
+    "parameters": {
+        "email": { "type": "string" }
+    },
+    "returns": {
+        "success": { "type": "boolean" },
+        "message": { "type": "string" }
+    }
+}
