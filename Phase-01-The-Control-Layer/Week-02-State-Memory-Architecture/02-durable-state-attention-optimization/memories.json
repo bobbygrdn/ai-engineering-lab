@@ -1,0 +1,26 @@
+{
+  "preferences": [
+    {
+      "content": "No timestamp"
+    },
+    {
+      "content": "String timestamp",
+      "timestamp": "not-a-number"
+    },
+    {
+      "content": "Negative timestamp",
+      "timestamp": -12345
+    },
+    {
+      "content": "Float timestamp",
+      "timestamp": 12345.67
+    }
+  ],
+  "past_issues": [
+    {
+      "content": "I can comprehend and generate text in multiple languages, including but not limited to:\n\n- English\n- Spanish\n- French\n- German\n- Italian\n- Portuguese\n- Dutch\n- Russian\n- Chinese (Simplified and Traditional)\n- Japanese\n- Korean\n- Arabic\n- Hindi\n\nIf you have a specific language in mind, feel free to ask!",
+      "timestamp": 1777772507
+    }
+  ],
+  "system_context": []
+}
