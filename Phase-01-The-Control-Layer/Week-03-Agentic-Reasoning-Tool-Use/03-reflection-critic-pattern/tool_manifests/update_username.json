@@ -1,0 +1,11 @@
+{
+    "name": "update_username",
+    "description": "Update the username for the account.",
+    "parameters": {
+        "username": { "type": "string" }
+    },
+    "returns": {
+        "success": { "type": "boolean" },
+        "message": { "type": "string" }
+    }
+}
