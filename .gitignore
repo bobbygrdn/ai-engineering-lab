@@ -7,6 +7,5 @@ dist
 *.zip
 *.log
 *.jsonl
-*.json
 *.db
 company_policy.txt
