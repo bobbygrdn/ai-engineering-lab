@@ -1,4 +1,4 @@
-# Part 1 Vector Geometry
+# Part 1: Vector Geometry
 
 ## Terms
 
