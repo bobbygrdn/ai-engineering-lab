@@ -22,14 +22,6 @@ The goal is to move beyond simple chat interfaces and master the architecture, d
   - **Week 11: Enterprise Cloud AI & MLOps**
   - **Week 12: Quality Assurance & Technical Authority**
 
-## 🛠️ Tech Stack
-
-- **Languages:**
-- **Runtime:**
-- **AI:**
-- **Cloud:**
-- **Tooling:**
-
 ## 📚 Phase 01: The Control Layer
 
 High-level focus areas covered in `Phase-01-The-Control-layer/`:
