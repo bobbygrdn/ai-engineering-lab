@@ -1,4 +1,4 @@
-## Part 3 Metadata Gate
+# Part 3 Metadata Gate
 
 ## Terms
 
