@@ -1,0 +1,11 @@
+id,score,ticket_type,ticket_priority,chunk_text,date_ts
+2033,0.49635618925094604,Billing inquiry,High,Wrong amount billed. My invoice shows $79.00 but my contract says $49.00 per month. This has been wrong for 6 months. I need the overcharges corrected,1709596800.0
+2089,0.4945257306098938,Billing inquiry,High,Wrong amount billed. My invoice shows $99.00 but my contract says $59.00 per month. This has been wrong for 2 months. I need the overcharges corrected,1709596800.0
+2053,0.49302250146865845,Billing inquiry,High,Wrong amount billed. My invoice shows $99.00 but my contract says $19.99 per month. This has been wrong for 6 months. I need the overcharges corrected,1709596800.0
+2046,0.48872509598731995,Billing inquiry,High,Wrong amount billed. My invoice shows $79.00 but my contract says $59.00 per month. This has been wrong for 4 months. I need the overcharges corrected,1730419200.0
+2050,0.4887077212333679,Billing inquiry,High,Wrong amount billed. My invoice shows $79.00 but my contract says $49.00 per month. This has been wrong for 2 months. I need the overcharges corrected,1705276800.0
+2068,0.48764342069625854,Billing inquiry,High,Wrong amount billed. My invoice shows $99.00 but my contract says $49.00 per month. This has been wrong for 4 months. I need the overcharges corrected,1712707200.0
+2036,0.48764342069625854,Billing inquiry,High,Wrong amount billed. My invoice shows $99.00 but my contract says $49.00 per month. This has been wrong for 4 months. I need the overcharges corrected,1708387200.0
+2085,0.48707327246665955,Billing inquiry,High,Wrong amount billed. My invoice shows $99.00 but my contract says $29.99 per month. This has been wrong for 6 months. I need the overcharges corrected,1708387200.0
+2063,0.48647838830947876,Billing inquiry,High,Wrong amount billed. My invoice shows $99.00 but my contract says $59.00 per month. This has been wrong for 6 months. I need the overcharges corrected,1730419200.0
+2066,0.4860430359840393,Billing inquiry,High,Wrong amount billed. My invoice shows $149.99 but my contract says $49.00 per month. This has been wrong for 4 months. I need the overcharges corrected,1705276800.0
