@@ -12,28 +12,41 @@ load_dotenv()
 
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
 INDEX_NAME = os.environ.get("INDEX_NAME")
-NAMESPACE = os.environ.get("NAMESPACE", None)
+NAMESPACE = os.environ.get("NAMESPACE", "__default__")
 
-if not PINECONE_API_KEY or not INDEX_NAME:
-    raise SystemExit("Set PINECONE_API_KEY and INDEX_NAME environment variables.")
+client = None
+index_info = None
+index = None
 
-client = Pinecone(api_key=PINECONE_API_KEY)
-index_info = client.describe_index(INDEX_NAME)
-index = client.Index(host=index_info.host)
+
+def _get_index():
+    global client, index_info, index
+    if index is not None:
+        return index
+
+    if not PINECONE_API_KEY or not INDEX_NAME:
+        raise SystemExit("Set PINECONE_API_KEY and INDEX_NAME environment variables.")
+
+    client = Pinecone(api_key=PINECONE_API_KEY)
+    index_info = client.describe_index(INDEX_NAME)
+    index = client.Index(host=index_info.host)
+    return index
 
 # Default fields to return when user does not specify --fields
-DEFAULT_FIELDS = ["ticket_type", "ticket_priority", "chunk_text", "date_ts"]
+DEFAULT_FIELDS = ["doc_id", "chunk_id", "chunk_total", "ticket_type", "ticket_priority", "chunk_text", "date_ts"]
 
 
 def _normalize_match(m: Any) -> Dict:
     # Support different SDK shapes: {'id'|'_id'}, 'score'|'_score', 'metadata', 'fields'
     if isinstance(m, dict):
         mid = m.get("id") or m.get("_id")
-        score = m.get("score") or m.get("_score")
+        score = m.get("score") if m.get("score") is not None else m.get("_score")
         fields = m.get("fields") or m.get("metadata") or {}
     else:
         mid = getattr(m, "id", None) or getattr(m, "_id", None)
-        score = getattr(m, "score", None) or getattr(m, "_score", None)
+        score = getattr(m, "score", None)
+        if score is None:
+            score = getattr(m, "_score", None)
         fields = getattr(m, "fields", None) or getattr(m, "metadata", None) or {}
     norm_fields = _normalize_metadata_values(fields or {})
     return {"id": mid, "score": score, "fields": norm_fields}
@@ -44,7 +57,7 @@ def _search_with_search_method(index, query_text, top_k, filter_obj, namespace, 
     # If namespace is None -> omit namespace argument so Pinecone uses the empty/default namespace.
     if namespace is None:
         if fields:
-            return index.search(query=query_payload, fields=fields)
+            return index.search(query=query_payload, fields=fields, namespace=NAMESPACE)
         return index.search(query=query_payload)
     ns = namespace or "__default__"
     if fields:
@@ -97,7 +110,7 @@ def _normalize_metadata_values(d: Dict[str, Any]) -> Dict[str, Any]:
                 out[k] = False
                 continue
             # numeric-looking date_ts
-            if k == "date_ts":
+            if k in {"date_ts", "chunk_id", "chunk_total"}:
                 if v.isdigit():
                     out[k] = int(v)
                     continue
@@ -125,10 +138,11 @@ def query_index(
     dump_csv_path: Optional[str] = None,
 ) -> List[Dict]:
     start = time.time()
-    if hasattr(index, "search"):
-        resp = _search_with_search_method(index, query_text, top_k, filter_obj, namespace, fields)
+    index_obj = _get_index()
+    if hasattr(index_obj, "search"):
+        resp = _search_with_search_method(index_obj, query_text, top_k, filter_obj, namespace, fields)
     else:
-        resp = _search_with_query_body(index, query_text, top_k, filter_obj, namespace, fields)
+        resp = _search_with_query_body(index_obj, query_text, top_k, filter_obj, namespace, fields)
 
     hits = _extract_hits(resp)
     matches = [_normalize_match(h) for h in hits]
@@ -271,7 +285,9 @@ if __name__ == "__main__":
         filter_obj = merge_date_range_into_filter(filter_obj, date_from_ts, date_to_ts)
 
     # Print basic info for debugging so you can verify index/host/namespace used
-    print(f"INDEX_NAME={INDEX_NAME!r} host={index_info.host!r} using namespace={namespace!r}")
+    index_obj = _get_index()
+    host = getattr(index_info, "host", None)
+    print(f"INDEX_NAME={INDEX_NAME!r} host={host!r} using namespace={namespace!r}")
 
     query_index(
         args.query,

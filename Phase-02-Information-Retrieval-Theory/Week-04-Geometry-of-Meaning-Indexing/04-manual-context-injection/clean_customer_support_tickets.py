@@ -22,6 +22,8 @@ TYPE_MAP = {
     "product inquiry": "product"
 }
 
+CHUNK_WORD_LIMIT = 60
+
 def normalize_text(value: Optional[str]) -> str:
     if value is None:
         return ""
@@ -95,6 +97,19 @@ def severity(priority: str) -> str:
         return "low"
     return "unknown"
 
+
+def split_into_chunks(text: str, max_words: int = CHUNK_WORD_LIMIT) -> List[str]:
+    words = normalize_text(text).split()
+    if not words:
+        return []
+
+    chunks = []
+    for start in range(0, len(words), max_words):
+        chunk = " ".join(words[start:start + max_words]).strip()
+        if chunk:
+            chunks.append(chunk)
+    return chunks or [normalize_text(text)]
+
 def classify_row(row: Dict[str, str]) -> List[str]:
     errors = []
 
@@ -120,7 +135,7 @@ def classify_row(row: Dict[str, str]) -> List[str]:
 
     return errors
 
-def build_clean_row(row: Dict[str, str]) -> Dict[str, str]:
+def build_clean_rows(row: Dict[str, str]) -> List[Dict[str, str]]:
     ticket_id = normalize_text(row.get("Ticket ID", ""))
     subject = normalize_text(row.get("Ticket Subject", ""))
     description = normalize_text(row.get("Ticket Description", ""))
@@ -132,24 +147,33 @@ def build_clean_row(row: Dict[str, str]) -> Dict[str, str]:
     satisfaction = normalize_text(row.get("Customer Satisfaction Rating", ""))
     age = normalize_text(row.get("Customer Age", ""))
 
-    chunk_text = f"{subject}. {description}".strip(" .")
+    chunk_source = f"{subject}. {description}".strip(" .")
+    chunk_texts = split_into_chunks(chunk_source)
+    chunk_total = len(chunk_texts) or 1
 
-    return {
-        "id": ticket_id,
-        "chunk_text": chunk_text,
-        "ticket_subject": subject,
-        "ticket_type": ticket_type,
-        "ticket_priority": priority,
-        "ticket_channel": channel,
-        "ticket_status": status,
-        "product_purchased": product,
-        "date_ts": str(parse_date_to_ts(row.get("Date of Purchase", "")) or ""),
-        "customer_satisfaction_rating": satisfaction,
-        "age_band": age_band(age),
-        "issue_family": issue_family(ticket_type, subject),
-        "issue_severity": severity(priority),
-        "needs_immediate_attention": "true" if normalize_text(priority).lower() == "critical" else "false",
-    }
+    rows: List[Dict[str, str]] = []
+    for chunk_id, chunk_text in enumerate(chunk_texts):
+        rows.append({
+            "id": f"{ticket_id}-{chunk_id}",
+            "doc_id": ticket_id,
+            "chunk_id": str(chunk_id),
+            "chunk_total": str(chunk_total),
+            "chunk_text": chunk_text,
+            "ticket_subject": subject,
+            "ticket_type": ticket_type,
+            "ticket_priority": priority,
+            "ticket_channel": channel,
+            "ticket_status": status,
+            "product_purchased": product,
+            "date_ts": str(parse_date_to_ts(row.get("Date of Purchase", "")) or ""),
+            "customer_satisfaction_rating": satisfaction,
+            "age_band": age_band(age),
+            "issue_family": issue_family(ticket_type, subject),
+            "issue_severity": severity(priority),
+            "needs_immediate_attention": "true" if normalize_text(priority).lower() == "critical" else "false",
+        })
+
+    return rows
 
 def main() -> None:
     CLEAN_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -162,6 +186,9 @@ def main() -> None:
 
         clean_fields = [
             "id",
+            "doc_id",
+            "chunk_id",
+            "chunk_total",
             "chunk_text",
             "ticket_subject",
             "ticket_type",
@@ -196,8 +223,10 @@ def main() -> None:
                 quarantined_count += 1
                 continue
 
-            clean_writer.writerow(build_clean_row(row))
-            cleaned_count += 1
+            clean_rows = build_clean_rows(row)
+            for clean_row in clean_rows:
+                clean_writer.writerow(clean_row)
+                cleaned_count += 1
 
     print(f"Clean rows: {cleaned_count}")
     print(f"Quarantined rows: {quarantined_count}")

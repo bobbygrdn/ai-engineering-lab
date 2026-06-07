@@ -55,8 +55,14 @@ def normalize_scalar(value):
     return value
 
 def to_record(row: Dict) -> Dict:
+    doc_id = row.get("doc_id") or row.get("id")
+    chunk_id = parse_int(row.get("chunk_id"))
+    chunk_total = parse_int(row.get("chunk_total"))
     record = {
-        "id": normalize_scalar(row["id"]),
+        "id": str(normalize_scalar(row["id"])),
+        "doc_id": str(normalize_scalar(doc_id)),
+        "chunk_id": chunk_id if chunk_id is not None else 0,
+        "chunk_total": chunk_total if chunk_total is not None else 1,
         "chunk_text": row.get("chunk_text", ""),
         "ticket_subject": row.get("ticket_subject", ""),
         "ticket_type": row.get("ticket_type", ""),
