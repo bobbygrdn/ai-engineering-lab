@@ -9,7 +9,7 @@ from concurrent.futures import ProcessPoolExecutor
 
 # Setup logging to capture errors and log events without stopping the pipeline
 logging.basicConfig(filename='conversions.log', level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-GLOBAL_OUTPUT_DIR = "northwind_data_md"
+GLOBAL_OUTPUT_DIR = "raw_files_markdown"
 
 
 def init_worker(options):
@@ -65,4 +65,4 @@ def run_pipeline(input_dir):
         list(executor.map(process_batch, batches))
 
 if __name__ == "__main__":
-    run_pipeline("northwind_data")
+    run_pipeline("raw_files")
