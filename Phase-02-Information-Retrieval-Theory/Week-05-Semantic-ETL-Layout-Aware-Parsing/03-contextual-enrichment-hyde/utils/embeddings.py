@@ -7,6 +7,7 @@ import argparse
 import nltk
 from nltk.tokenize import sent_tokenize
 import uuid
+from utils.llm import create_metadata
 
 nltk.download('punkt_tab')
 load_dotenv()
@@ -146,18 +147,24 @@ def semantic_chunking(text: str, threshold: float = 0.85) -> list[dict]:
         unit_texts = [unit['text'] for unit in units]
         unit_embeddings = get_embeddings(unit_texts)
 
+        # Create metadata for parent chunks
+        parent_metadata_obj = create_metadata(chunk)
+        parent_metadata = parent_metadata_obj.model_dump()
+
         children = []
         for unit, embedding in zip(units, unit_embeddings):
             child_id = str(uuid.uuid4())
             children.append({
                 'child_id': child_id,
                 'text': unit['text'],
-                'embedding': embedding
+                'embedding': embedding,
+                'parent_metadata': parent_metadata
             })
 
         hierarchical.append({
             'parent_id': parent_id,
             'parent_text': chunk,
+            'parent_metadata': parent_metadata,
             'children': children
         })
 

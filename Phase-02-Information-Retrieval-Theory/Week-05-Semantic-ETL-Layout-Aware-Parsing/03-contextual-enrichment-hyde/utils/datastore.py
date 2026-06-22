@@ -87,7 +87,8 @@ def store_vectors(collection_name: str, hierarchical: list[dict]):
             vectors.append(child["embedding"])
             payloads.append({
                 "parent_id": parent["parent_id"],
-                "text": child["text"]
+                "text": child["text"],
+                "metadata": child["parent_metadata"]
             })
             child_ids.append(child["child_id"])
 

@@ -25,7 +25,7 @@ from utils.datastore import (
     create_collection,
 )
 from utils.process_single_document import parse_pdf_to_markdown
-from utils.llm import ask
+from utils.llm import ask, create_metadata
 
 
 # --------------------------------------------------------------------------- #
@@ -83,6 +83,13 @@ def action_chunk():
         _save_hierarchy(hierarchy, out)
         print(f"Hierarchy saved to {out}")
 
+def action_create_metadata_for_chunk():
+    chunk = input("Enter the chunk text: ").strip()
+    if not chunk:
+        return
+    metadata = create_metadata(chunk)
+    print(f"Created metadata for chunk:\n{metadata}")
+
 def action_store():
     coll = input("Collection name [02-semantic-chunking]: ").strip() or "02-semantic-chunking"
     inp = _prompt_file("JSON hierarchy file (leave empty to re‑chunk): ", must_exist=False)
@@ -124,7 +131,9 @@ def action_ask():
     if not question:
         return
     k = _prompt_int("Top‑k child hits to consider", 5)
-    hits = search(question, coll, top_k=k)
+    print("Generating hypothetical answer...")
+    hypothetical_answer = generate_hypothetical_answer(question)
+    hits = search(hypothetical_answer, coll, top_k=k)
     if not hits:
         print("No relevant context found.")
         return
@@ -141,9 +150,10 @@ def main():
     actions = {
         "1": ("Convert PDF → Markdown", action_convert_pdf),
         "2": ("Chunk Markdown file", action_chunk),
-        "3": ("Store vectors in Qdrant", action_store),
-        "4": ("Search vector store", action_search),
-        "5": ("Ask a question (search + LLM)", action_ask),
+        "3": ("Create metadata for chunk", action_create_metadata_for_chunk),
+        "4": ("Store vectors in Qdrant", action_store),
+        "5": ("Search vector store", action_search),
+        "6": ("Ask a question (search + LLM)", action_ask),
         "q": ("Quit", None),
     }
 
