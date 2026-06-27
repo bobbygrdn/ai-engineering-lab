@@ -8,6 +8,7 @@ import nltk
 from nltk.tokenize import sent_tokenize
 import uuid
 from utils.llm import create_metadata
+from utils.hash import generate_id
 
 nltk.download('punkt_tab')
 load_dotenv()
@@ -103,17 +104,28 @@ def semantic_chunking(text: str, threshold: float = 0.85) -> list[dict]:
     if not units:
         return []
 
-    # Extract text for embedding
-    unit_texts = [unit['text'] for unit in units]
-    embeddings = get_embeddings(unit_texts)
+    filtered_units = [
+        u for u in units
+        if not (u["type"] == "text" and "Sections" in u["text"] and "et seq." in u["text"])
+    ]
+
+    if not filtered_units:
+        return []
+
+    # Extract text for embedding (only for the filtered set)
+    unit_texts = [unit["text"] for unit in filtered_units]
+    unit_embeddings = get_embeddings(unit_texts)
+    unit_embeddings_map = {
+        unit["text"]: embedding for unit, embedding in zip(filtered_units, unit_embeddings)
+    }
 
     chunks = []
-    current_chunk_units = [units[0]]
+    current_chunk_units = [filtered_units[0]]
 
     # Identify breakpoints based on cosine similarity
-    for i in range(len(embeddings) - 1):
-        unit_current = units[i]
-        unit_next = units[i + 1]
+    for i in range(len(filtered_units) - 1):
+        unit_current = filtered_units[i]
+        unit_next = filtered_units[i + 1]
 
         # Force a split if the next unit is a header (structural boundary)
         if unit_next['type'] == 'header':
@@ -122,7 +134,7 @@ def semantic_chunking(text: str, threshold: float = 0.85) -> list[dict]:
             continue
     
         # Calculate similarity between current and next unit
-        similarity = cosine_similarity(embeddings[i], embeddings[i + 1])
+        similarity = cosine_similarity(unit_embeddings[i], unit_embeddings[i + 1])
 
         if similarity < threshold:
             chunks.append('\n\n'.join([u['text'] for u in current_chunk_units]))
@@ -136,24 +148,23 @@ def semantic_chunking(text: str, threshold: float = 0.85) -> list[dict]:
     # Convert to hierarchical structure
     hierarchical = []
     for chunk in chunks:
-        # Generate a unique parent ID
-        parent_id = str(uuid.uuid4())
+        # Generate a unique parent ID using hash function for idempotency and data integrity
+        parent_id = generate_id(chunk)
 
         #Split chunk back into its constituent units (sentences, tables, headers)
         #Re-use split_into_units to maintain consistency
-        units = split_into_units(chunk)
+        sub_units = split_into_units(chunk)
 
         # Get embeddings for each unit
-        unit_texts = [unit['text'] for unit in units]
-        unit_embeddings = get_embeddings(unit_texts)
+        sub_embeddings = [unit_embeddings_map[unit['text']] for unit in sub_units]
 
         # Create metadata for parent chunks
         parent_metadata_obj = create_metadata(chunk)
         parent_metadata = parent_metadata_obj.model_dump()
 
         children = []
-        for unit, embedding in zip(units, unit_embeddings):
-            child_id = str(uuid.uuid4())
+        for unit, embedding in zip(sub_units, sub_embeddings):
+            child_id = generate_id(unit['text'])
             children.append({
                 'child_id': child_id,
                 'text': unit['text'],

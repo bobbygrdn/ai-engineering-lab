@@ -15,6 +15,7 @@ Usage:
 import json
 import os
 import sys
+import unicodedata
 from pathlib import Path
 
 from utils.embeddings import semantic_chunking, get_embeddings
@@ -23,9 +24,10 @@ from utils.datastore import (
     search,
     get_parent_texts,
     create_collection,
+    check_existing_ids,
 )
 from utils.process_single_document import parse_pdf_to_markdown
-from utils.llm import ask, create_metadata
+from utils.llm import ask, create_metadata, generate_hypothetical_answer
 
 
 # --------------------------------------------------------------------------- #
@@ -58,6 +60,23 @@ def _prompt_int(prompt: str, default: int) -> int:
     val = input(f"{prompt} [{default}]: ").strip()
     return int(val) if val else default
 
+def _normalize_text(text: str) -> str:
+    """
+    Normalise raw markdown text so the downstream chunker never sees
+    problematic Unicode characters.
+
+    • NFKC normalisation – collapses compatibility variants (e.g. “ﬁ” → “fi”)
+    • Replace non‑breaking spaces (U+00A0) with ordinary spaces.
+    • Drop any remaining non‑ASCII characters (e.g. ®, em‑dashes, etc.).
+    • Strip leading/trailing whitespace.
+    """
+    normalized = unicodedata.normalize("NFKC", text)
+
+    normalized = normalized.replace("\xa0", " ")
+
+    ascii_only = normalized.encode("ascii", "ignore").decode()
+
+    return ascii_only.strip()
 
 # --------------------------------------------------------------------------- #
 # 2.  Menu actions
@@ -74,9 +93,12 @@ def action_chunk():
     if not md:
         return
     threshold = _prompt_float("Similarity threshold", 0.7)
-    hierarchy = semantic_chunking(
-        open(md, encoding="utf-8").read(), threshold=threshold
-    )
+    # Open the markdown file with a tolerant UTF‑8 decoder to avoid UnicodeDecodeError
+    with open(md, encoding="utf-8", errors="replace") as f:
+        raw_text = f.read()
+
+    clean_text = _normalize_text(raw_text)
+    hierarchy = semantic_chunking(clean_text, threshold=threshold)
     print(f"Created {len(hierarchy)} parent chunks.")
     out = _prompt_file("Save hierarchy to JSON? (leave empty to skip): ", must_exist=False)
     if out:
@@ -100,15 +122,36 @@ def action_store():
         if not md:
             return
         threshold = _prompt_float("Similarity threshold", 0.7)
+        clean_text = _normalize_text(open(md, encoding="utf-8").read())
         hierarchy = semantic_chunking(
-            open(md, encoding="utf-8").read(), threshold=threshold
+            clean_text, threshold=threshold
         )
-    store_vectors(coll, hierarchy)
-    print(f"Vectors stored in collection '{coll}'.")
 
-    file_path = Path(inp)
-    file_path.unlink(missing_ok=True)
-    print(f"Deleted hierarchy file {inp}.")
+    child_ids = [child["child_id"] for parent in hierarchy for child in parent["children"]]
+
+    existing_ids = check_existing_ids(coll, child_ids)
+
+    filtered_hierarchy = []
+    for parent in hierarchy:
+        new_children = [child for child in parent["children"] if child["child_id"] not in existing_ids]
+        if new_children:
+            parent_copy = parent.copy()
+            parent_copy["children"] = new_children
+            filtered_hierarchy.append(parent_copy)
+
+    if filtered_hierarchy:
+        store_vectors(coll, filtered_hierarchy)
+        print(f"Vectors stored in collection '{coll}'.")
+    else:
+        print("No new vectors to store – all child IDs already exist.")
+
+    # Delete the temporary hierarchy file only if the user supplied a path.
+    if inp:
+        file_path = Path(inp)
+        # Guard against attempting to delete a non‑existent or invalid path.
+        if file_path.is_file():
+            file_path.unlink(missing_ok=True)
+            print(f"Deleted hierarchy file {inp}.")
 
 def action_search():
     coll = input("Collection name [02-semantic-chunking]: ").strip() or "02-semantic-chunking"

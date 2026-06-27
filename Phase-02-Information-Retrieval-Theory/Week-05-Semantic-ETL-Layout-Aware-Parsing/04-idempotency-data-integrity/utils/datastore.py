@@ -1,7 +1,6 @@
 import sqlite3
 import os
-from qdrant_client import QdrantClient
-from qdrant_client.http import models
+from qdrant_client import QdrantClient, models
 from utils.embeddings import get_embeddings
 
 
@@ -129,3 +128,29 @@ def get_parent_texts(hits, collection_name: str):
     
     parent_ids = {hit.payload["parent_id"] for hit in hits}
     return _load_parents_sqlite(collection_name, parent_ids)
+
+def check_existing_ids(collection_name: str, ids: list[str]) -> set[str]:
+    """
+    Return the subset of *ids* that already exist in the collection.
+    """
+    if not ids:
+        return set()
+
+    if not client.collection_exists(collection_name):
+        return set()
+
+    scroll_result = client.scroll(
+        collection_name=collection_name,
+        scroll_filter=models.Filter(
+            must=[
+                models.HasIdCondition(has_id=ids)
+            ]
+        ),
+        with_payload=False,
+        with_vectors=False,
+        limit=len(ids)
+    )
+
+    points = scroll_result[0] if isinstance(scroll_result, tuple) else getattr(scroll_result, "points", [])
+
+    return {str(point.id) for point in points}
