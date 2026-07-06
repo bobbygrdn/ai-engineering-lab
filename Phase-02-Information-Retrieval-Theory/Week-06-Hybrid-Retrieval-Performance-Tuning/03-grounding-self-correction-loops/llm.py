@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from typing import List, Tuple
 from logger import logger
+from pydantic import BaseModel
 
 load_dotenv()
 
@@ -10,6 +11,16 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 client = OpenAI()
 client.api_key = OPENAI_API_KEY
+
+class ClaimResult(BaseModel):
+    claim: str
+    supported: bool
+    evidence: List[str]
+    confidence: float
+
+class CritiqueResponse(BaseModel):
+    claims: List[ClaimResult]
+
 
 def generate_response(query: str, top_results: list[tuple[str, float]]) -> str:
     context = "\n\n".join([f"Result {i+1}: {text}" for i, (text, score) in enumerate(top_results)])
@@ -49,3 +60,27 @@ def embed_query(query: str) -> list[float]:
     )
     logger.info(f"Generated embedding for query: {query}")
     return response.data[0].embedding
+
+def critique_response(answer: str, top_results: list[tuple[str, float]]):
+    if not top_results:
+        logger.warning("No top results provided for critique. Returning default response.")
+        return "I don't know. No supporting context available."
+
+    context = "\n\n".join([f"Result {i+1}: {text}" for i, (text, score) in enumerate(top_results)])
+    prompt = f"---Context---\n{context}\n---End Context---\nDoes the provided context contain the facts used in this answer? Return the exact sentence from the context, enclosed in double quotes. If any claim can not be verified, respond with I don't know and do not list unsupported sentences. Include a confidence score between 0 and 1 for your assessment of each claim based on the context. Include a boolean field indicating whether the claim is supported by the context. If there are multiple claims, provide a list of claims with their respective support status, confidence score, and evidence."
+
+    try:
+        response = client.responses.parse(
+            model="gpt-4o-mini",
+            instructions=prompt,
+            input=answer,
+            text_format=CritiqueResponse,
+        )
+    except Exception as e:
+        logger.error(f"Error occurred while critiquing response: {e}")
+        return "I don't know. No supporting context available."
+
+    logger.info(f"Critiqued response for answer: {answer}")
+    logger.info(f"Critiqued response for context: {context}")
+    logger.info(f"Critiqued response: {response.output_text}")
+    return response.output_parsed
