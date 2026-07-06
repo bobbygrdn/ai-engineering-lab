@@ -36,6 +36,14 @@ async def wait_for_db():
     logger.error("Postgres container did not become healthy")
     raise RuntimeError("Postgres container did not become healthy")
 
+async def get_existing_contents() -> set[str]:
+    """
+    Fetch existing contents from the database to avoid duplicates.
+    """
+    async with pool.acquire() as conn:
+        rows = await conn.fetch("SELECT content FROM document_store;")
+        return {row['content'] for row in rows}
+
 async def insert_embeddings(raw_documents: list[str], embeddings_to_insert: list[list[float]]):
 
     async with pool.acquire() as conn:

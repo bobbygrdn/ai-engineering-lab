@@ -3,7 +3,7 @@ import re
 import unicodedata
 from logger import logger
 
-PARQUET_PATH = r"C:\Users\bobby\Desktop\code\ai-engineering-lab\Phase-02-Information-Retrieval-Theory\Week-06-Hybrid-Retrieval-Performance-Tuning\02-cross-encoder-re-ranker\data\slack_messages.parquet"
+PARQUET_PATH = r"data\slack_messages.parquet"
 
 df = pd.read_parquet(PARQUET_PATH)
 
