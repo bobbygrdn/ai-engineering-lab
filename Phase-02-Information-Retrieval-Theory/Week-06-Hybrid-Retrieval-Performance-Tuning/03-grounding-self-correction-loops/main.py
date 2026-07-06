@@ -1,6 +1,6 @@
 import asyncio
 import os
-from llm import generate_response, embed_query
+from llm import generate_response, embed_query, critique_response
 from vector_store import setup, wait_for_db, search_embeddings
 from functools import lru_cache
 from logger import logger
@@ -84,7 +84,18 @@ async def chat() -> None:
 
         # Generate answer
         llm_reply = generate_response(query, list(zip(top_texts, top_scores)))
-        print(f"Bot: {llm_reply}")
+        critique = critique_response(llm_reply, list(zip(top_texts, top_scores)))
+
+        if any(claim.confidence < 0.8 for claim in critique.claims):
+            print("Bot: I don't know. No supporting context available.")
+        else:
+            print(f"Bot: {llm_reply}")
+            print("Critique:")
+            for claim in critique.claims:
+                print(f"- Claim: {claim.claim}")
+                print(f"  Supported: {claim.supported}")
+                print(f"  Evidence: {claim.evidence}")
+                print(f"  Confidence: {claim.confidence:.2f}")
 
 async def main() -> None:
     asyncio.create_task(await_resources())
