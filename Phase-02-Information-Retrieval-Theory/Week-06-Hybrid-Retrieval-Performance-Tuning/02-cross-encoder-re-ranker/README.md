@@ -20,42 +20,60 @@
 
 ## Implementation Overview
 
-The repository implements a **two‑stage hybrid retrieval pipeline** in Python:
+The project implements a two‑stage retrieval pipeline:
 
-1. **Data ingestion** – data_ingestion.py loads raw documents, cleans text, and prepares them for embedding.
-2. **Embedding generation** – `llm.py` provides `generate_embeddings` and `embed_query` using a sentence‑transformer model.
-3. **Vector store** – vector_store.py creates a PostgreSQL/pgvector store, inserts embeddings, and performs fast similarity search (`search_embeddings`).
-4. **Cross‑encoder re‑ranking** – `main.py` loads `CrossEncoder("cross-encoder/ms-marco-MiniLM-L-12-v2")`; candidate pairs are scored and sorted.
-5. **LLM response** – top‑k re‑ranked texts are passed to `generate_response` for final answer generation.
+- **Fast vector search** retrieves the top‑k candidate documents using dense embeddings.
+- **Cross‑encoder re‑ranker** scores each query‑document pair with a transformer model (`cross-encoder/ms-marco-MiniLM-L12-v2`).
+- The highest‑scoring documents are fed to an LLM to generate the final answer.
 
-Primary capabilities:
+Primary capabilities identified:
 
-- End‑to‑end async pipeline for ingestion, indexing, and interactive chat.
-- Configurable candidate limits (`top_k` for vector search, `top_n` for final LLM context).
-- PostgreSQL‑backed persistent vector store with pgvector.
+1. Asynchronous resource initialization (database, model caching).
+2. Offline‑first model loading with HuggingFace caching.
+3. Vector‑based similarity search via `vector_store`.
+4. Cross‑encoder relevance scoring.
+5. LLM response generation based on re‑ranked context.
 
 ## How It Works
 
-1. **Database preparation** – `await wait_for_db()` and `await setup()` create the pgvector schema.
-2. **Document loading** – `get_clean_texts()` reads and cleans raw data.
-3. **Embedding & indexing** – `generate_embeddings` creates dense vectors; `insert_embeddings` bulk‑loads them into the vector store.
-4. **User query** – `embed_query` encodes the query.
-5. **Fast vector retrieval** – `search_embeddings` returns the top‑20 nearest documents by cosine similarity.
-6. **Cross‑encoder re‑ranking** – each `(query, doc)` pair is scored with `cross_encoder.predict`; results are sorted descending.
-7. **Context selection** – the best 3 documents and their scores are packaged for the LLM.
-8. **Answer generation** – `generate_response` produces a natural‑language reply displayed to the user.
+1. User inputs a query via the console.
+2. `embed_query` creates an embedding for the query.
+3. `search_embeddings` performs a fast vector search, returning the top‑20 candidate documents.
+4. Query‑document pairs are built and passed to the cached `CrossEncoder` model for scoring.
+5. Candidates are sorted by relevance scores; the top‑3 are selected.
+6. `generate_response` calls the LLM with the top‑3 texts and their scores to produce the final answer, which is printed to the console.
+
+## Data Ingestion Pipeline
+
+The ingestion process prepares raw Slack messages for vector storage:
+
+1. **Load raw data** – `data_ingestion.py` reads `data/slack_messages.parquet` into a DataFrame.
+2. **Clean text** – `clean_text` normalises Unicode, removes whitespace, lower‑cases, and strips non‑ASCII characters.
+3. **Generate embeddings** – `ingest_data.py` calls `generate_embeddings` from `llm.py` on the cleaned texts.
+4. **Insert into vector store** – embeddings and their corresponding texts are bulk‑inserted via `insert_embeddings`.
+5. **Deduplication** – existing contents are fetched with `get_existing_contents` to avoid duplicate inserts.
+
+Running `python ingest_data.py` populates the PostgreSQL vector database, ready for the retrieval stage.
 
 ## Example Usage
 
 ```python
+# Run the interactive chatbot
 python main.py
+```
+
+Typical console interaction:
+
+```
+=== How may I help you today? (type 'exit' to quit) ===
+You: What are the health benefits of green tea?
+Bot: Green tea contains antioxidants ... (LLM answer)
 ```
 
 ## Next Steps
 
-- **Batch re‑ranking**: use `cross_encoder.predict` on batches to fully exploit GPU parallelism.
-- **Configurable thresholds**: expose `top_k` (vector) and `top_n` (final) as CLI arguments or env variables.
-- **Caching**: memoize cross‑encoder scores for frequent queries to reduce latency.
-- **Evaluation**: add scripts to benchmark latency vs. precision (e.g., MAP, NDCG).
-- **Containerization**: provide a Dockerfile and docker-compose.yml service for PostgreSQL and the app.
-- **Model swapping**: allow plug‑in of alternative re‑ranker models (BGE‑Reranker, Cohere) via config.
+- Enable GPU acceleration for the cross‑encoder to reduce latency.
+- Tune `top_k` and the number of re‑ranked candidates based on workload characteristics.
+- Add batch inference support to score larger candidate sets efficiently.
+- Expose the pipeline as a REST API for external integration.
+- Incorporate evaluation metrics (e.g., MAP, latency) to monitor precision‑latency trade‑offs.
