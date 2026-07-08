@@ -1,1 +1,4 @@
 .deepeval/
+cached_test_cases.json
+evaluation_metrics.png
+evaluation_results.csv
