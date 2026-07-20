@@ -1,6 +1,6 @@
 from pydantic import ValidationError
 from schema import SupportTicket
-from engine import instructor_client, openai_client
+from engine import LLMInterface
 import os
 from tabulate import tabulate
 from logger import logging, log_invalid_output
@@ -8,6 +8,8 @@ import json
 import re
 import time
 import tiktoken
+
+llm_interface = LLMInterface("llama")
 
 def api_wrapper(api_func):
     def wrapped(*args, **kwargs):
@@ -43,44 +45,54 @@ def calulate_price(prompt_tokens, completion_tokens):
 
 @api_wrapper
 def classify_support_ticket(email_text: str) -> SupportTicket:
-    response, completion = instructor_client.chat.completions.create_with_completion(
-        response_model=SupportTicket,
-        messages=[
-            {
-                "role": "user",
-                "content": email_text
-            }
-        ]
-    )
-    return response, completion
+    # Create a prompt that instructs the model to return JSON matching our schema
+    prompt = f"""
+        Classify this support ticket.
+
+        Ticket: {email_text}
+        """
+    
+    # Use the LLM interface to get structured response
+    response = llm_interface.generate_structured_response(prompt, SupportTicket)
+    return response, None  # Return None for completion to maintain compatibility
 
 def classify_support_ticket_stream(email_text: str):
     start = time.time()
     ttft = None
     content = ""
 
-    stream = openai_client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {
-                "role": "user",
-                "content": (
-                    "Classify this support ticket and respond ONLY with a valid JSON object matching this schema:\n"
-                    '{"priority": "High|Medium|Low", "department": "Billing|Tech|General", "summary": "string"}\n'
-                    f"Ticket: {email_text}"
-                )
-            }
-        ],
-        stream=True
-    )
+    # For streaming with llama.cpp, we'll simulate it by getting the full response
+    # and then breaking it into chunks for compatibility
+    prompt = f"""
+        Classify this support ticket and respond ONLY with a valid JSON object matching this schema:
+        {{
+            "priority": "High|Medium|Low",
+            "department": "Billing|Tech|General", 
+            "summary": "string"
+        }}
 
-    for i, partial in enumerate(stream):
+        Ticket: {email_text}
+        """
+    
+    # Get the full response
+    response_obj = llm_interface.generate_structured_response(prompt, SupportTicket)
+    content = response_obj.model_dump_json()
+    
+    # Simulate streaming by breaking into chunks
+    chunk_size = max(1, len(content) // 10)  # Split into ~10 chunks
+    chunks = [content[i:i+chunk_size] for i in range(0, len(content), chunk_size)]
+    
+    ttft = time.time() - start  # Time to first chunk
+    
+    # Process chunks to simulate streaming
+    full_content = ""
+    for i, chunk in enumerate(chunks):
         if i == 0:
             ttft = time.time() - start
-        delta = getattr(partial.choices[0], "delta", None)
-        token = getattr(delta, "content", "") if delta else ""
-        content += token or ""
-
+        full_content += chunk
+        # Small delay to simulate streaming
+        time.sleep(0.01)
+    
     TTFT_THRESHOLD = 2.0
 
     if ttft and ttft > TTFT_THRESHOLD:
@@ -89,13 +101,12 @@ def classify_support_ticket_stream(email_text: str):
         logging.info(f"Time to first token: {ttft:.2f}s for input: {email_text}")
         
     total_duration = time.time() - start
-    json_content = extract_json(content)
-    enc = tiktoken.encoding_for_model("gpt-4o-mini")
+    enc = tiktoken.encoding_for_model("gpt-4o-mini")  # Using OpenAI encoding for compatibility
     prompt_tokens = len(enc.encode(email_text))
-    completion_tokens = len(enc.encode(content))
-    if not json_content:
+    completion_tokens = len(enc.encode(full_content))
+    if not full_content:
         raise ValueError("no JSON found in model output!")
-    response = SupportTicket.model_validate_json(json_content) if json_content else None
+    response = SupportTicket.model_validate_json(full_content)
     metadata = {
         "total_duration": total_duration,
         "time_to_first_token": ttft,
@@ -133,5 +144,5 @@ def print_ticket(ticket):
 
 if __name__ == "__main__":
     email_text = "Hello, I was charged twice for my subscription and I need a refund. Please help me resolve this issue as soon as possible."
-    response, metadata = classify_support_ticket_stream(email_text)
+    response, metadata = classify_support_ticket(email_text)
     print_ticket(response)
