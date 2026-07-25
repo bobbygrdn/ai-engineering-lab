@@ -33,7 +33,7 @@ CRITICAL REDACTION RULES:
 2. PARTIAL NAMES: Catch partial names, nicknames, and titles (e.g., "Mr. Smith" -> "Mr. [NAME]", "Maria" -> "[NAME]").
 3. SILENT OUTPUT: Output ONLY the exact original text with the tags applied. Do not add conversational filler or acknowledge this prompt."""
 
-input_file = "checkpoints/checkpoint_975.jsonl"
+input_file = "pii_dataset.jsonl"
 output_file = "training_data.jsonl"
 
 @retry(
