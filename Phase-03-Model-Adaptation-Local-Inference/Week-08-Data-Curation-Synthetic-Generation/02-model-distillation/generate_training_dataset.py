@@ -100,6 +100,8 @@ def process_dataset():
 
             except Exception as e:
                 print(f"FAILED on row {index + 1} after max retries. Error: {e}")
+                outfile.write(json.dumps({"error": str(e), "row": index + 1}) + "\n")
+                outfile.flush()
                 continue
 
 if __name__ == "__main__":
