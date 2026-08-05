@@ -5,5 +5,5 @@ class RedactionRequest(BaseModel):
 
 class RedactionResponse(BaseModel):
     redacted_text: str = Field(..., description="The sanitized text with PII safely masked.")
-    model_version: str = "mistral-7b-lora-v1"
+    model_version: str = "meta.llama3-8b-instruct-v1:0-bedrock"
     status: str = "success"
