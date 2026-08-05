@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from app.schemas import RedactionRequest, RedactionResponse
-from app.inference import redact
+from app.inference import redact_pii
 
 app = FastAPI(
     title="Enterprise Local PII Scrubber Engine",
@@ -11,7 +11,7 @@ app = FastAPI(
 @app.get("/health")
 def health_check():
     """Health check endpoint for Docker/Kubernetes container monitoring."""
-    return {"status": "healthy", "engine": "mistral-7b-lora-v1"}
+    return {"status": "healthy", "engine": "meta.llama3-8b-instruct-v1:0-bedrock"}
 
 @app.post("/v1/redact", response_model=RedactionResponse)
 def redact_document(request: RedactionRequest):
@@ -20,11 +20,10 @@ def redact_document(request: RedactionRequest):
     using the locally hosted fine-tuned model.
     """
     try:
-        # Route directly to your locally hosted model
-        safe_text = redact(request.text)
+        safe_text = redact_pii(request.text)
         return RedactionResponse(
             redacted_text=safe_text,
-            model_version="bobbygrdn/pii-redactor-mistral-lora-v1",
+            model_version="meta.llama3-8b-instruct-v1:0-bedrock",
             status="success"
         )
     except Exception as e:
