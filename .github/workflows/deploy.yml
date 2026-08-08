@@ -3,10 +3,14 @@ name: Deploy Enterprise Proxy to AWS
 on:
   push:
     branches: [ "main" ]
+    paths:
+        - 'pii-scrubber-capstone/**'
+        - '.github/workflows/deploy.yml'
 
 env:
   AWS_REGION: us-east-1
   ECR_REPOSITORY: pii-scrubber-proxy
+  WORKING_DIR: ./pii-scrubber-capstone
 
 jobs:
   build-and-deploy:
@@ -34,6 +38,7 @@ jobs:
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         IMAGE_TAG: ${{ github.sha }}
+      working-directory: ${{ env.WORKING_DIR }}
       run: |
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
