@@ -1,0 +1,10 @@
+{
+    "input": {
+        "text": "Patient Sarah Jenkins (DOB: 08/14/1982) was admitted to Cedar Sinai Hospital by Dr. Robert Chen. Please forward her labs to r.chen@cedarsinai.org or call 555-0199."
+    },
+    "response": {
+        "redacted_text": "Patient [NAME] (DOB: [DATE]) was admitted to [LOCATION] by Dr. [NAME]. Please forward her labs to [EMAIL] or call [PHONE NUMBER].",
+        "model_version": "meta.llama3-8b-instruct-v1:0-bedrock",
+        "status": "success"
+    }
+}
