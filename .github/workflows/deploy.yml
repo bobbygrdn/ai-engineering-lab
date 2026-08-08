@@ -1,11 +1,11 @@
 name: Deploy Enterprise Proxy to AWS
 
-on:
-  push:
-    branches: [ "main" ]
-    paths:
-        - 'pii-scrubber-capstone/**'
-        - '.github/workflows/deploy.yml'
+# on:
+#   push:
+#     branches: [ "main" ]
+#     paths:
+#         - 'pii-scrubber-capstone/**'
+#         - '.github/workflows/deploy.yml'
 
 env:
   AWS_REGION: us-east-1
