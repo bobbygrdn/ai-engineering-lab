@@ -16,6 +16,11 @@ jobs:
   build-and-deploy:
     name: Build & Push to Amazon ECR
     runs-on: ubuntu-latest
+    
+    # 🚨 CRITICAL FIX: Grant GitHub permission to generate the OIDC token
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
     - name: Checkout Code
@@ -42,4 +47,4 @@ jobs:
       run: |
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
         docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
-        print "✅ Container successfully pushed to AWS!"
+        echo "✅ Container successfully pushed to AWS!"
