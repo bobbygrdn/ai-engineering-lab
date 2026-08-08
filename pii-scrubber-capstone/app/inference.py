@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-bedrock_client = boto3.client('bedrock-runtime')
+bedrock_client = boto3.client('bedrock-runtime', region_name='us-east-1')
 
 def redact_pii(text: str) -> str:
     """Sends text to Meta Llama 3 on AWS Bedrock for PII redaction."""
